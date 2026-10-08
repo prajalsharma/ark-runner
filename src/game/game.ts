@@ -15,7 +15,7 @@ import { submitRun } from "../net/api.ts";
 
 export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
 
-type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; alive: boolean };
+type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; alive: boolean };
 
 export class Game {
   sim: RunSim;
@@ -51,6 +51,7 @@ export class Game {
     this.renderer = new Renderer(canvas, selectedCharacterColor());
     this.hud = new HUD(hudEl, overlayEl);
     this.audio.resume(); // we're inside the run-button gesture → allowed to start audio
+    this.audio.startMusic();
 
     this.detach = attachInput((a) => {
       if (!this.sim.alive || this.paused) return;
@@ -81,7 +82,7 @@ export class Game {
 
   private snapshot(): Snapshot {
     const s = this.sim;
-    return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, alive: s.alive };
+    return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, grounded: s.grounded, alive: s.alive };
   }
 
   private loop(now: number): void {
@@ -113,6 +114,11 @@ export class Game {
       this.recorded = true;
       recordRun({ score: Math.floor(s.score), mode: this.mode, dateKey: this.dateKey, ts: Date.now(), dist: s.distance, flips: s.flips, blockRuns: s.blockRuns });
     }
+    // Beat your prior best → a little fanfare (reads the old best before the card writes it).
+    let prevBest = 0;
+    try { prevBest = Number(localStorage.getItem("archrunner.best.v1") || 0); } catch { /* ephemeral */ }
+    if (prevBest > 0 && Math.floor(s.score) > prevBest) this.audio.play("record");
+
     this.onEnd?.(s);
     // Daily runs are submitted for server-side validation when a backend is set
     // (no-op offline). The official score is the server's, not ours.
@@ -141,6 +147,7 @@ export class Game {
 
   private reactToEvents(): void {
     const s = this.sim, p = this.prev;
+    if (s.grounded && !p.grounded) this.audio.play("land");
     if (s.collected > p.collected) { this.audio.play("collect"); this.renderer.burst("collect"); }
     if (s.nearMisses > p.nearMisses) { this.audio.play("nearmiss"); this.renderer.addShake(0.12); }
     if (s.perfects > p.perfects) { this.audio.play("perfect"); this.renderer.addShake(0.06); this.renderer.burst("perfect"); this.hud.toast("PERFECT", "perfect"); }
@@ -217,6 +224,7 @@ export class Game {
 
   stop(): void {
     cancelAnimationFrame(this.raf);
+    this.audio.stopMusic();
     this.detach();
     this.detachKeys();
     this.sysbar.remove();

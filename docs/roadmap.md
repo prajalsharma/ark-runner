@@ -41,6 +41,17 @@ throws rather than faking). Title has a clearly-labelled **CONNECT WALLET (DEMO)
 wallet seam. Deferred: settings panel, colorblind-safe palette, adjustable sensitivity, a second environment
 theme, mid-tier-mobile perf pass.
 
+## Studio polish ✅ (shipped)
+- **World depth** (`cityscape.ts`): scrolling Bitcoin city — side towers with lit windows + Arch ring-gates
+  the runner passes through, recycled by distance (cheap). Reused by gameplay + menu attract.
+- **Procedural 3D character** (`runner-rig.ts`): jointed runner with run/jump/slide animation, live recolour.
+- **Narrative** (`cutscene.ts` + Auditor): skippable opening cinematic ("The Block Bandit") over the live city,
+  the Auditor antagonist with in-run quips; STORY replay in the menu.
+- **Audio** (`audio.ts`): dynamic music (filtered pad + arpeggio that brightens/speeds with pace, +octave in
+  Block Run) and event cues (collect/perfect/flip/block/land/death/record) + speed-tracking engine hum.
+- **Death recap**: result card tells you what you hit + a "N to beat your best — one more run?" hook.
+- **Real wallet connect** (UniSat/OKX, BIP-322) + wallet-linked profile + 2 characters.
+
 ## Externally blocked (needs infra, not code)
 Wiring the **real Arch settlement + wallet** — a deployed Satellite program on testnet, a minted+funded APL
 token, and live BIP-322 signing — can't be completed here; the providers are honest skeletons ready for it.

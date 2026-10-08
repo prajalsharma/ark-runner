@@ -1,10 +1,11 @@
 /**
- * Procedural audio — zero asset files. A small WebAudio synth: short tone blips
- * for events plus an engine hum whose pitch tracks speed. Must be created/resumed
- * inside a user gesture (autoplay policy); Game does this on the run button.
- * Audio is presentation only — it never touches the deterministic sim.
+ * Procedural audio — zero asset files. A small WebAudio synth: event blips, an engine
+ * hum whose pitch tracks speed, and a dynamic music bed (a filtered pad + an arpeggio
+ * that brightens and speeds with pace, and lifts an octave in Block Run). Must be
+ * created/resumed inside a user gesture (Game does this on the run button). Presentation
+ * only — never touches the deterministic sim.
  */
-export type SfxEvent = "collect" | "nearmiss" | "perfect" | "blockstart" | "jump" | "slide" | "death" | "flip" | "flipbank";
+export type SfxEvent = "collect" | "nearmiss" | "perfect" | "blockstart" | "jump" | "slide" | "death" | "flip" | "flipbank" | "land" | "record";
 
 const MUTE_KEY = "archrunner.muted.v1";
 const readMuted = (): boolean => { try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; } };
@@ -16,25 +17,44 @@ export class AudioManager {
   private master: GainNode | null = null;
   private hum: OscillatorNode | null = null;
   private humGain: GainNode | null = null;
+  private musicGain: GainNode | null = null;
+  private padFilter: BiquadFilterNode | null = null;
+  private arpTimer = 0;
+  private arpStep = 0;
+  private arpSpeed = 0;   // 0..1 pace
+  private arpBlock = false;
 
-  /** Lazily build the graph on the first user gesture; safe to call repeatedly. */
   resume(): void {
     if (this.ctx) { void this.ctx.resume(); return; }
     const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
-    this.ctx = new Ctor();
-    this.master = this.ctx.createGain();
+    const ctx = new Ctor();
+    this.ctx = ctx;
+    this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.9;
-    this.master.connect(this.ctx.destination);
+    this.master.connect(ctx.destination);
 
-    this.humGain = this.ctx.createGain();
+    this.humGain = ctx.createGain();
     this.humGain.gain.value = 0;
     this.humGain.connect(this.master);
-    this.hum = this.ctx.createOscillator();
+    this.hum = ctx.createOscillator();
     this.hum.type = "sawtooth";
     this.hum.frequency.value = 55;
     this.hum.connect(this.humGain);
     this.hum.start();
+
+    // Music bed: two detuned triangles (A2 + E3) through a lowpass pad.
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.value = this.muted ? 0 : 0.05;
+    this.musicGain.connect(this.master);
+    this.padFilter = ctx.createBiquadFilter();
+    this.padFilter.type = "lowpass";
+    this.padFilter.frequency.value = 500;
+    this.padFilter.connect(this.musicGain);
+    for (const f of [110, 164.81]) {
+      const o = ctx.createOscillator();
+      o.type = "triangle"; o.frequency.value = f; o.connect(this.padFilter); o.start();
+    }
   }
 
   suspend(): void { void this.ctx?.suspend(); }
@@ -43,15 +63,35 @@ export class AudioManager {
     this.muted = m;
     writeMuted(m);
     if (this.master) this.master.gain.value = m ? 0 : 0.9;
+    if (this.musicGain) this.musicGain.gain.value = m ? 0 : 0.05;
   }
   toggleMute(): boolean { this.setMuted(!this.muted); return this.muted; }
 
-  /** Engine hum: pitch rises with speed, a touch louder during a Block Run. */
+  /** Engine hum pitch + pad brightness track speed; a touch louder in a Block Run. */
   setDrive(speed: number, blockRun: boolean): void {
-    if (!this.ctx || !this.hum || !this.humGain) return;
+    if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.hum.frequency.setTargetAtTime(48 + speed * 2.1, t, 0.12);
-    this.humGain.gain.setTargetAtTime(this.muted ? 0 : blockRun ? 0.07 : 0.035, t, 0.12);
+    this.hum?.frequency.setTargetAtTime(48 + speed * 2.1, t, 0.12);
+    this.humGain?.gain.setTargetAtTime(this.muted ? 0 : blockRun ? 0.07 : 0.035, t, 0.12);
+    const sf = Math.min(1, Math.max(0, (speed - 14) / (42 * 1.3 - 14)));
+    this.padFilter?.frequency.setTargetAtTime(380 + sf * 1500 + (blockRun ? 900 : 0), t, 0.25);
+    this.arpSpeed = sf; this.arpBlock = blockRun;
+  }
+
+  /** Start/stop the arpeggio (bound to an active run). */
+  startMusic(): void {
+    if (this.arpTimer || !this.ctx) return;
+    this.arpStep = 0;
+    this.arpTimer = window.setInterval(() => this.arpTick(), 150);
+  }
+  stopMusic(): void { if (this.arpTimer) { clearInterval(this.arpTimer); this.arpTimer = 0; } }
+
+  private arpTick(): void {
+    if (!this.ctx || this.muted || this.ctx.state !== "running") return;
+    const scale = [220, 277.18, 329.63, 440, 554.37]; // A pentatonic
+    const freq = scale[this.arpStep % scale.length]! * (this.arpBlock ? 2 : 1);
+    this.tone(freq, 0.17, "triangle", 0.045 + this.arpSpeed * 0.045);
+    this.arpStep++;
   }
 
   private tone(freq: number, dur: number, type: OscillatorType, vol: number): void {
@@ -76,9 +116,11 @@ export class AudioManager {
       case "blockstart": this.tone(150, 0.28, "sawtooth", 0.3); this.tone(300, 0.3, "square", 0.16); break;
       case "jump": this.tone(520, 0.1, "sine", 0.18); break;
       case "slide": this.tone(230, 0.13, "sawtooth", 0.14); break;
+      case "land": this.tone(140, 0.08, "sine", 0.16); break;
       case "death": this.tone(200, 0.45, "sawtooth", 0.32); this.tone(85, 0.5, "square", 0.28); break;
       case "flip": this.tone(440, 0.18, "square", 0.22); this.tone(660, 0.22, "square", 0.18); this.tone(880, 0.26, "square", 0.14); break;
       case "flipbank": this.tone(784, 0.1, "triangle", 0.26); this.tone(1047, 0.12, "triangle", 0.22); this.tone(1568, 0.16, "triangle", 0.18); break;
+      case "record": [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => this.tone(f, 0.22, "triangle", 0.24), i * 90)); break;
     }
   }
 }
