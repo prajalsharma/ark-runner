@@ -34,6 +34,7 @@ export class Renderer {
   private lastPlayerY = 0.8;
   private lastNow = 0;
   private deathT = -1; // >=0 while the death camera plays
+  private perf = false; // runtime auto-downgrade when frames are slow
   private fog: THREE.Fog;
   private canvas: HTMLCanvasElement;
 
@@ -154,6 +155,9 @@ export class Renderer {
     this.cam.updateProjectionMatrix();
   }
 
+  /** Runtime perf downgrade (set by the loop when frames are consistently slow). */
+  setPerfMode(on: boolean): void { this.perf = on; }
+
   /** Cinematic death camera: pulls up/back and orbits the fallen runner. */
   startDeathCam(): void { this.deathT = 0; }
   stopDeathCam(): void { this.deathT = -1; }
@@ -172,11 +176,11 @@ export class Renderer {
   }
 
   /** Called by the orchestrator on gameplay events (impact feedback). */
-  addShake(v: number): void { if (!this.reduced) this.shake = Math.min(1.3, this.shake + v); }
+  addShake(v: number): void { if (!this.reduced && !this.perf) this.shake = Math.min(1.3, this.shake + v); }
 
   /** Spawn a particle burst at the player (presentation only). */
   burst(kind: "collect" | "perfect" | "death" | "flip"): void {
-    if (this.reduced) return;
+    if (this.reduced || this.perf) return;
     const n = kind === "death" ? 20 : kind === "collect" ? 6 : 12;
     const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : 0xffd54a;
     const speed = kind === "death" ? 9 : 5;
@@ -265,7 +269,7 @@ export class Renderer {
     }
 
     // Speed streaks (Block Run only): deterministic lateral lanes scrolling fast.
-    const streaksOn = this.blockLevel > 0.15 && !this.reduced && !this.lowQ;
+    const streaksOn = this.blockLevel > 0.15 && !this.reduced && !this.lowQ && !this.perf;
     const sspan = 90;
     for (let i = 0; i < this.streaks.length; i++) {
       const m = this.streaks[i]!;

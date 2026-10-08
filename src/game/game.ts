@@ -42,6 +42,8 @@ export class Game {
   private prev: Snapshot;
   private auditorAt = 260;   // next distance (world units) to drop an Auditor quip
   private auditorN = 0;
+  private slowFrames = 0;    // adaptive-perf: sustained jank → auto-downgrade effects
+  private perfLocked = false;
   private dateKey = dateKeyUTC();
 
   constructor(canvas: HTMLCanvasElement, hudEl: HTMLElement, overlayEl: HTMLElement, opts: GameOpts = {}) {
@@ -94,6 +96,12 @@ export class Game {
     this.lastT = now;
     if (this.paused) { this.raf = requestAnimationFrame(this.loop); return; }
     if (frame > 0.1) frame = 0.1; // clamp after a tab switch
+    // Adaptive performance: ~1.5s of sustained slow frames → drop effects once.
+    if (!this.perfLocked) {
+      this.slowFrames += frame > 0.028 ? 1 : -1;
+      if (this.slowFrames < 0) this.slowFrames = 0;
+      if (this.slowFrames > 90) { this.renderer.setPerfMode(true); this.perfLocked = true; }
+    }
     this.acc += frame;
     while (this.acc >= DT) { this.sim.step(); this.acc -= DT; }
 
