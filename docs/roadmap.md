@@ -22,10 +22,12 @@ Leaderboard, AntiCheat, Scheduler. PostgreSQL (authoritative) + Redis (live boar
 Server owns seeds; client submits `{seed, inputs}`. See `anti-cheat.md`.
 
 ## Phase 5 — Arch economy (behind the provider)
-`packages/arch` implements `ArchSettlementProvider` over `@arch-network/arch-sdk` 0.0.28, reusing the
-**proven Scramble escrow**: per-competition PDA holds the pot in its ATA; program-signed payout to winners'
-forced ATAs; reclaim/timeout escape hatch. BIP-322 wallet connect (UniSat/Xverse inline), Buffer polyfill,
-`request_airdrop` for rent. Entry fees + prizes in aBTC/aUSD. Economy simulations pick the prize structure.
+`packages/arch` implements `ArchSettlementProvider` over `@arch-network/arch-sdk` 0.0.28, with the settlement
+program written in **Satellite** (`arch-satellite-*` 0.31, `arch_program` 0.12, `cargo build-sbf`, deploy via
+`arch-kit`), reusing the **escrow pattern proven E2E in our prior Scramble work**: per-competition PDA holds the
+pot in its ATA; program-signed payout to winners' forced ATAs; reclaim/timeout escape hatch. BIP-322 Bitcoin
+wallet connect (Xverse/UniSat/Leather/OKX); `requestAirdrop` for account rent. Entry fees + prizes in **our own
+APL token** (we mint + fund it — no protocol-native asset). Economy simulations pick the prize structure.
 
 ## Phase 6 — Competitions live
 Hourly/weekly windows, prize pools, optional commit-reveal lucky-runner, settlement verification UI,

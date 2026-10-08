@@ -25,6 +25,8 @@ The engine never imports chain code. Two impls: `MockSettlementProvider` (dev/de
 ## ADR-001 — Target chain is **Arch Network** (2026-08-30, reaffirmed 2026-10-08)
 ARCH RUNNER settles on **Arch** — the same Bitcoin-native L2 as the sibling games Satoshi Scramble and
 Arch Duel. Rationale: the escrow + program-signed payout + reclaim pattern is already **proven E2E on Arch
-testnet**, aBTC/aUSD exist, BIP-322 wallets work, and the browser/SDK gotchas are already mapped
-(`arch-capabilities.md`). No other chain or platform is involved. The only capability gap is verifiable
-randomness (no VRF) → handled via commit-reveal over a future block hash. **Accepted.**
+testnet in our own prior work**, the APL Token Program + ATA exist, and BIP-322 Bitcoin wallets work
+(all re-verified against official sources 2026-10-08 — see `arch-capabilities.md` / `hallucination-risk.md`).
+No other chain or platform is involved. The only capability gap is verifiable randomness (no VRF) → handled
+via commit-reveal over a future block hash. Note: there is **no** protocol-native stablecoin/BTC asset, so we
+mint our own APL token. **Accepted.**

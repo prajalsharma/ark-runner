@@ -21,7 +21,7 @@ npm install && npm run dev   # open http://localhost:5180 (use a phone or narrow
 - **Fair daily competition for free:** one shared daily seed → everyone runs the same world.
 - **Chain-ready, chain-isolated.** The game doesn't import any blockchain code. Settlement sits behind a
   `GameSettlementProvider`; the Arch implementation reuses escrow + program-signed payout + reclaim already
-  proven on Arch testnet (aBTC/aUSD, BIP-322 wallets).
+  proven on Arch testnet in our prior work (our own APL token, BIP-322 Bitcoin wallets).
 - **Never invents money.** Prizes are entry-fee-funded, integer sats, with a solvency invariant in code.
 
 ## What's next (one line)
