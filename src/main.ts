@@ -11,9 +11,9 @@ let game: Game | null = null;
 function showTitle(): void {
   overlay.innerHTML = `
     <div class="card">
-      <div class="title"><span class="accent">ARK</span> RUNNER</div>
-      <div class="sub" style="margin-top:10px">RUN THE ARK · BANK THE SATS · CHAIN YOUR FLOW</div>
-      <button id="run" class="btn">RUN THE ARK</button>
+      <div class="title"><span class="accent">ARCH</span> RUNNER</div>
+      <div class="sub" style="margin-top:10px">RUN THE ARCH · BANK THE SATS · CHAIN YOUR FLOW</div>
+      <button id="run" class="btn">RUN THE ARCH</button>
       <div class="hint">← → MOVE · ↑ / SPACE JUMP · ↓ SLIDE · SWIPE ON MOBILE</div>
     </div>`;
   overlay.classList.add("show");

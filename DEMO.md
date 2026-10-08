@@ -1,4 +1,4 @@
-# ARK RUNNER — Demo Script
+# ARCH RUNNER — Demo Script
 
 ~2 minutes. Goal: prove it's a *fun game* first, then that the architecture is ready for Arch.
 
@@ -8,7 +8,7 @@ npm install && npm run dev   # open http://localhost:5180 (use a phone or narrow
 ```
 
 ## Run it (60s)
-1. Title → **RUN THE ARK**.
+1. Title → **RUN THE ARCH**.
 2. Move with `A`/`D` (or swipe), `Space`/swipe-up to jump, `S`/swipe-down to slide.
 3. Chain clean dodges and near-misses → watch **FLOW** climb and the world intensify, speed ramp up.
 4. Die → result card (score, distance, energy, near-miss, best) → **RUN IT AGAIN**.
@@ -25,5 +25,5 @@ npm install && npm run dev   # open http://localhost:5180 (use a phone or narrow
 - **Never invents money.** Prizes are entry-fee-funded, integer sats, with a solvency invariant in code.
 
 ## What's next (one line)
-Phase 2 juice + Block Run + ARK FLIP → MVP daily challenge → backend replay validation → Arch competitions.
+Phase 2 juice + Block Run + ARCH FLIP → MVP daily challenge → backend replay validation → Arch competitions.
 See `docs/roadmap.md`.

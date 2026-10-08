@@ -1,5 +1,5 @@
 /**
- * RunSim — the deterministic ARK RUNNER simulation. Pure given (seed, input
+ * RunSim — the deterministic ARCH RUNNER simulation. Pure given (seed, input
  * events, constants): the client runs it to play, and the server will re-run the
  * same inputs to validate the score (anti-cheat). No Math.random, no wall-clock —
  * everything advances in fixed DT ticks.

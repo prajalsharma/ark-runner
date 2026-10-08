@@ -1,6 +1,6 @@
 /**
  * Procedural-generation safety: statistically prove no segment is impossible.
- * Rules an ARK RUNNER segment must never violate:
+ * Rules an ARCH RUNNER segment must never violate:
  *  - a WALL (full-block) never covers all 3 lanes at the same depth → run-ending.
  *  - a PIT never covers all 3 lanes → unjumpable wall of gaps.
  *  - no single depth requires jump AND slide at once (LOW+HIGH coincident).

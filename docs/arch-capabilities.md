@@ -1,9 +1,9 @@
-# Arch Network — Capability Matrix (ARK RUNNER)
+# Arch Network — Capability Matrix (ARCH RUNNER)
 
 **Target chain: Arch Network** (arch.network) — a Bitcoin-native smart-contract L2 with an
 eBPF/Solana-style VM and BIP-322 (Taproot) authorization. Same chain as the sibling games
 Satoshi Scramble and Arch Duel, so most of this is **session-verified on testnet**, not assumed.
-ARK RUNNER's entire economy and settlement layer runs on Arch — no other chain or platform.
+ARCH RUNNER's entire economy and settlement layer runs on Arch — no other chain or platform.
 
 Stack: `@arch-network/arch-sdk` **0.0.28** (pinned; 0.0.27 is a broken empty publish) · Rust
 `arch_program` 0.8.x · `arch-cli` 0.8.6 (`cargo build-sbf`, Agave 3.1.10) · node v0.8.8.
@@ -25,7 +25,7 @@ Testnet RPC `https://rpc.testnet.arch.network` (keyless) · keyless REST indexer
 | Testnet + faucet | **SUPPORTED, VERIFIED** | live | `request_airdrop` funds native rent; **aBTC/aUSD have no public faucet** — acquire/transfer (we denominate small entries + check balance, no stranding) |
 | Explorer WebSocket | **ABSENT** | verified | No WS on the indexer; poll REST + `read_account_info` |
 
-## What this means for ARK RUNNER
+## What this means for ARCH RUNNER
 - **Entry fees + prizes in an APL token (aBTC or aUSD).** Reuse the **proven Scramble escrow**:
   a per-competition PDA holds the pot in its ATA; the program pays winners' ATAs on settlement;
   a reclaim/timeout path guarantees no stuck funds.

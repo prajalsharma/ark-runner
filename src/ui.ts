@@ -1,7 +1,7 @@
 /** In-run HUD + result overlay. Plain DOM — the canvas owns the frame budget. */
 import type { RunSim } from "./game/sim.ts";
 
-const bestKey = "arkrunner.best.v1";
+const bestKey = "archrunner.best.v1";
 const readBest = (): number => { try { return Number(localStorage.getItem(bestKey) || 0); } catch { return 0; } };
 const writeBest = (v: number): void => { try { localStorage.setItem(bestKey, String(v)); } catch { /* ephemeral */ } };
 

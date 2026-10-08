@@ -1,10 +1,10 @@
-# ARK RUNNER — Product Spec
+# ARCH RUNNER — Product Spec
 
 **One game.** A polished, mobile-first 3D endless runner with an asynchronous competitive
 economy powered by Arch Network (Bitcoin L2). A real arcade game first, a blockchain app second.
 
 ## Fantasy
-You are an **Ark Runner** carrying settlement energy through **THE ARK** — a cybernetic
+You are an **Arch Runner** carrying settlement energy through **THE ARCH** — a cybernetic
 Bitcoin city collapsing behind you. Run forward, dodge, chain perfect movements, bank energy.
 
 ## Core loop
@@ -19,11 +19,11 @@ Title → (optional wallet) → free run → **jump / slide / lane-change / coll
 - **Weekly championship** — sum of your top N daily scores (prevents brute-forcing by volume).
 
 ## Signature mechanics
-- **ARK FLOW** — consecutive clean actions / near-misses raise a score multiplier; one hit resets it.
+- **ARCH FLOW** — consecutive clean actions / near-misses raise a score multiplier; one hit resets it.
   At 10 actions you hit **Hyper Flow** (intensified world/music/score).
 - **Block Run** *(Phase 2)* — a periodic high-speed Bitcoin-block tunnel: denser obstacles + rewards.
-- **ARK FLIP** *(Phase 2, the "wow")* — at high Flow a gateway offers **SAFE EXIT** (bank your run) or
-  **ARK FLIP** (a dangerous high-speed sequence: succeed → massive multiplier, fail → lose the multiplier).
+- **ARCH FLIP** *(Phase 2, the "wow")* — at high Flow a gateway offers **SAFE EXIT** (bank your run) or
+  **ARCH FLIP** (a dangerous high-speed sequence: succeed → massive multiplier, fail → lose the multiplier).
   Skill-based, never arbitrary gambling.
 
 ## Controls

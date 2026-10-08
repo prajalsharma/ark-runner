@@ -1,15 +1,15 @@
-# ARK RUNNER — Roadmap
+# ARCH RUNNER — Roadmap
 
 Fun first, chain second. Each phase is independently shippable.
 
 ## Phase 1 — Greybox ✅ (shipped)
 Deterministic `RunSim`, seeded `SegmentGenerator` (all patterns beatable), 3-lane move/jump/slide,
-collision, energy, near-miss, **ARK FLOW** multiplier, score, death, result overlay, Three.js render,
+collision, energy, near-miss, **ARCH FLOW** multiplier, score, death, result overlay, Three.js render,
 keyboard + swipe input, title → run. Tests: replay-reproduces-score + no-impossible-segment, both passing.
 
 ## Phase 2 — Vertical slice (feel + wow)
 Juice: camera shake/FOV on speed, hit feedback, particles, audio, **Hyper Flow** intensity.
-**Block Run** (block-tunnel burst) and **ARK FLIP** (skill-based bank-or-flip gateway). Tutorial onboarding.
+**Block Run** (block-tunnel burst) and **ARCH FLIP** (skill-based bank-or-flip gateway). Tutorial onboarding.
 Settings, pause, accessibility (reduced motion, colorblind-safe palette). Perf budget on mid-tier mobile.
 
 ## Phase 3 — MVP game (no money yet)

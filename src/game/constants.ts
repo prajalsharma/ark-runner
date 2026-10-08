@@ -1,9 +1,9 @@
 /**
- * ARK RUNNER — frozen gameplay constants (ARKRUN_V1). The simulation is
+ * ARCH RUNNER — frozen gameplay constants (ARCHRUN_V1). The simulation is
  * deterministic: same seed + same inputs + these constants ⇒ same result,
  * on the client and on the server replay.
  */
-export const RULESET = "ARKRUN_V1";
+export const RULESET = "ARCHRUN_V1";
 
 export const TICK_HZ = 60;
 export const DT = 1 / TICK_HZ;

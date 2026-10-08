@@ -1,4 +1,4 @@
-# ARK RUNNER — Anti-Cheat (determinism as the foundation)
+# ARCH RUNNER — Anti-Cheat (determinism as the foundation)
 
 **Core rule: never trust a client score.** The client reports an *input stream*, not a number.
 The server owns the truth.
@@ -25,7 +25,7 @@ The server owns the truth.
 - **Statistical outliers**: score/time percentile, superhuman reaction cadence, near-miss rate → shadow review.
 - **Rate limits & one-run-per-window** on competition entries (Redis), idempotent submit keys.
 - **Build pinning**: `buildVersion` must match the canonical sim version for that competition; constants are
-  frozen (`ARKRUN_V1`) and versioned so replays stay valid.
+  frozen (`ARCHRUN_V1`) and versioned so replays stay valid.
 - **Replay audit trail**: every paid run's `{seed, inputs}` is stored; any payout is reproducible on demand.
 
 ## Randomness & money

@@ -1,4 +1,4 @@
-# ARK RUNNER — Economics (draft; no real funds until simulated)
+# ARCH RUNNER — Economics (draft; no real funds until simulated)
 
 **Hard rule: never invent money.** Every reward has an explicit source. Denominated in **sats**
 (integer base units; no floating-point money, ever).

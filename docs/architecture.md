@@ -1,4 +1,4 @@
-# ARK RUNNER — Architecture
+# ARCH RUNNER — Architecture
 
 ## Principle: deterministic core, thin presentation, isolated blockchain
 The simulation is **pure and deterministic** (seed + inputs + frozen constants ⇒ identical result).
@@ -13,7 +13,7 @@ InputSystem ─▶ RunSim (deterministic, fixed DT) ─▶ Renderer (Three.js, r
 
 ## Current code (Phase 1 — greybox, shipped)
 - `src/engine/rng.ts` — `SeededRandom` (mulberry32) + `seedFromString` (daily seeds).
-- `src/game/constants.ts` — frozen `ARKRUN_V1` tuning (speed, gravity, flow, scoring).
+- `src/game/constants.ts` — frozen `ARCHRUN_V1` tuning (speed, gravity, flow, scoring).
 - `src/game/patterns.ts` — `SegmentGenerator` + pattern library; every pattern beatable (tested).
 - `src/game/sim.ts` — `RunSim`: player state, input, collision, energy, near-miss, flow, score, death.
   Pure; records `inputs[]` for replay.

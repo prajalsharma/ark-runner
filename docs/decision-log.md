@@ -1,4 +1,4 @@
-# ARK RUNNER — Decision Log (ADRs)
+# ARCH RUNNER — Decision Log (ADRs)
 
 Short, dated, append-only. Newest first.
 
@@ -23,7 +23,7 @@ The engine never imports chain code. Two impls: `MockSettlementProvider` (dev/de
 `ArchSettlementProvider` (`@arch-network/arch-sdk`). Lets the game be fun-first and the chain swappable/testable.
 
 ## ADR-001 — Target chain is **Arch Network** (2026-08-30, reaffirmed 2026-10-08)
-ARK RUNNER settles on **Arch** — the same Bitcoin-native L2 as the sibling games Satoshi Scramble and
+ARCH RUNNER settles on **Arch** — the same Bitcoin-native L2 as the sibling games Satoshi Scramble and
 Arch Duel. Rationale: the escrow + program-signed payout + reclaim pattern is already **proven E2E on Arch
 testnet**, aBTC/aUSD exist, BIP-322 wallets work, and the browser/SDK gotchas are already mapped
 (`arch-capabilities.md`). No other chain or platform is involved. The only capability gap is verifiable

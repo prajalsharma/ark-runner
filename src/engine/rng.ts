@@ -31,7 +31,7 @@ export class SeededRandom {
   }
 }
 
-/** Hash a string daily-seed label (e.g. "ARK-2026-10-08") to a 32-bit number. */
+/** Hash a string daily-seed label (e.g. "ARCH-2026-10-08") to a 32-bit number. */
 export function seedFromString(label: string): number {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < label.length; i++) {

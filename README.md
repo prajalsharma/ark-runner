@@ -1,10 +1,10 @@
-# ARK RUNNER
+# ARCH RUNNER
 
 A mobile-first **3D endless runner** with an asynchronous competitive economy on **Arch Network**
 (a Bitcoin-native L2). A real arcade game first, a blockchain app second.
 
-Run the **ARK** — a collapsing cybernetic Bitcoin city. Switch lanes, jump, slide, chain clean moves to
-build **ARK FLOW**, bank energy, and climb a skill leaderboard. Prizes (later phases) are entry-fee-funded
+Run the **ARCH** — a collapsing cybernetic Bitcoin city. Switch lanes, jump, slide, chain clean moves to
+build **ARCH FLOW**, bank energy, and climb a skill leaderboard. Prizes (later phases) are entry-fee-funded
 and paid out on Arch; the game itself is fully playable free, with no wallet required.
 
 ## Status
@@ -40,7 +40,7 @@ reclaim pattern already proven end-to-end on Arch testnet.
 - `docs/economics.md` — prize funding, solvency, legal flags
 - `docs/anti-cheat.md` — replay validation
 - `docs/arch-capabilities.md` — Arch Network capability matrix (what's verified vs. custom)
-- `docs/decisions.md` — ADR log · `docs/roadmap.md` — phases
+- `docs/decision-log.md` — ADR log · `docs/roadmap.md` — phases
 - `DEMO.md` — how to show it
 
 ## Legal
