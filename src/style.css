@@ -119,6 +119,20 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { #toast.show { animation: none; opacity: 0; } }
 
+.btn.ghost.small { font-size: 11px; padding: 10px; letter-spacing: 1px; }
+
+/* First-run coach banner */
+#coach {
+  position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%);
+  max-width: 90%; text-align: center; pointer-events: none;
+  padding: 10px 16px; border-radius: 10px; font-size: 12px; letter-spacing: 1px;
+  color: #e9ecf5; background: rgba(10, 12, 20, 0.7); border: 1px solid rgba(255,122,26,0.3);
+  backdrop-filter: blur(6px); opacity: 0; transition: opacity 0.4s;
+}
+#coach.show { opacity: 1; }
+#coach b { color: #ffb24d; }
+@media (prefers-reduced-motion: reduce) { #coach { transition: none; } }
+
 /* System buttons (mute / pause) */
 #sysbar {
   position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px;

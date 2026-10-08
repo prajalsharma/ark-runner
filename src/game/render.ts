@@ -25,6 +25,10 @@ export class Renderer {
   private ticks: THREE.Mesh[] = [];
   private streaks: THREE.Mesh[] = [];
   private gatePool: THREE.Mesh[] = [];
+  private parts: { m: THREE.Mesh; vx: number; vy: number; vz: number; life: number; max: number }[] = [];
+  private lastPlayerX = 0;
+  private lastPlayerY = 0.8;
+  private lastNow = 0;
   private fog: THREE.Fog;
   private canvas: HTMLCanvasElement;
 
@@ -102,6 +106,14 @@ export class Renderer {
       m.visible = false; this.gatePool.push(m); this.scene.add(m);
     }
 
+    // Particle pool (collect sparkles / death burst). Render-only.
+    const pGeo = new THREE.BoxGeometry(0.13, 0.13, 0.13);
+    for (let i = 0; i < 48; i++) {
+      const m = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 1 }));
+      m.visible = false; this.scene.add(m);
+      this.parts.push({ m, vx: 0, vy: 0, vz: 0, life: 0, max: 1 });
+    }
+
     // Player.
     this.player = new THREE.Mesh(
       new THREE.BoxGeometry(1.1, 1.6, 1.0),
@@ -139,8 +151,44 @@ export class Renderer {
   /** Called by the orchestrator on gameplay events (impact feedback). */
   addShake(v: number): void { if (!this.reduced) this.shake = Math.min(1.3, this.shake + v); }
 
+  /** Spawn a particle burst at the player (presentation only). */
+  burst(kind: "collect" | "perfect" | "death" | "flip"): void {
+    if (this.reduced) return;
+    const n = kind === "death" ? 20 : kind === "collect" ? 6 : 12;
+    const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : 0xffd54a;
+    const speed = kind === "death" ? 9 : 5;
+    let spawned = 0;
+    for (const p of this.parts) {
+      if (p.life > 0) continue;
+      if (spawned >= n) break;
+      spawned++;
+      p.m.position.set(this.lastPlayerX, this.lastPlayerY, 0);
+      const mat = p.m.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(color); mat.opacity = 1;
+      const a = Math.random() * Math.PI * 2, sp = speed * (0.4 + Math.random() * 0.6);
+      p.vx = Math.cos(a) * sp; p.vy = Math.random() * sp + 2; p.vz = Math.sin(a) * sp * 0.5;
+      p.max = kind === "death" ? 0.8 : 0.5; p.life = p.max;
+      p.m.visible = true;
+    }
+  }
+
+  private updateParticles(dt: number): void {
+    for (const p of this.parts) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      if (p.life <= 0) { p.m.visible = false; continue; }
+      p.vy -= 20 * dt;
+      p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
+      const t = p.life / p.max;
+      (p.m.material as THREE.MeshBasicMaterial).opacity = t;
+      p.m.scale.setScalar(0.5 + t);
+    }
+  }
+
   render(sim: RunSim, nowMs: number): void {
     const d = sim.distance;
+    const dt = this.lastNow ? Math.min(0.05, (nowMs - this.lastNow) / 1000) : 0.016;
+    this.lastNow = nowMs;
 
     // Block Run / ARCH FLIP intensity ease in/out so colour + FOV transitions are smooth.
     this.blockLevel += ((sim.blockRun ? 1 : 0) - this.blockLevel) * 0.08;
@@ -150,6 +198,7 @@ export class Renderer {
     this.player.position.x = sim.laneX;
     this.player.scale.set(1, sim.sliding ? 0.5 : 1, 1);
     this.player.position.y = (sim.sliding ? 0.42 : 0.8) + sim.y;
+    this.lastPlayerX = sim.laneX; this.lastPlayerY = this.player.position.y;
     const pm = this.player.material as THREE.MeshStandardMaterial;
     pm.emissiveIntensity = Math.min(2.6, 0.6 + sim.flow * 0.12 + (sim.hyperFlow ? 0.6 : 0) + this.flipLevel * 0.8);
     pm.color.copy(this.cPlayer).lerp(this.cPlayerBlock, this.blockLevel).lerp(this.cPlayerFlip, this.flipLevel);
@@ -239,6 +288,7 @@ export class Renderer {
     }
     for (; gi < this.gatePool.length; gi++) this.gatePool[gi]!.visible = false;
 
+    this.updateParticles(dt);
     this.gl.render(this.scene, this.cam);
   }
 }

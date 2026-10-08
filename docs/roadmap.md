@@ -23,9 +23,19 @@ flow-scaled bonus if you survive it (die and you lose it — that's the risk). T
 the only variable, so replays reproduce exactly (tested). Gold world tint + gate markers + riser/chime SFX +
 HUD chip + toasts. Never coincides with a Block Run.
 
-## Phase 2c — Remaining vertical-slice polish (deferred)
-Tutorial onboarding. Settings, colorblind-safe palette, adjustable sensitivity. A second environment theme.
-Particles. Perf budget on mid-tier mobile. (Picked up after the MVP/backend phases.)
+## Phase 2c — Polish + wallet seam ✅ (partially shipped)
+Shipped: **particle bursts** (collect / perfect / flip-bank / death, render-only, reduced-motion aware),
+**first-run tutorial coach** (auto-dismiss, once per device), and the **WalletProvider seam**
+(`src/wallet/`): interface + a working **MockWalletProvider** (connect / sign / deterministic demo address,
+no keys, no network) + an **honest ArchWalletProvider skeleton** (BIP-322 over Xverse/UniSat/Leather/OKX;
+throws rather than faking). Title has a clearly-labelled **CONNECT WALLET (DEMO)** flow. Tests cover the
+wallet seam. Deferred: settings panel, colorblind-safe palette, adjustable sensitivity, a second environment
+theme, mid-tier-mobile perf pass.
+
+## Externally blocked (needs infra, not code)
+Wiring the **real Arch settlement + wallet** — a deployed Satellite program on testnet, a minted+funded APL
+token, and live BIP-322 signing — can't be completed here; the providers are honest skeletons ready for it.
+And the **legal review gate** before any real-money mode is a human/legal step, not an engineering one.
 
 ## Phase 3 — MVP game (no money yet) ✅ (shipped)
 **Daily Block** on a shared UTC-date seed (same world for everyone that day; bounded by MATCH_SECONDS so

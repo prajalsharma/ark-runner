@@ -58,6 +58,7 @@ export class Game {
 
     this.sysbar = this.buildSysbar();
     this.detachKeys = this.attachSysKeys();
+    this.maybeCoach();
 
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
@@ -66,6 +67,13 @@ export class Game {
   /** Daily Block replays the same shared seed all day; Free Run is fresh each time. */
   private newSeed(): number {
     return this.mode === "daily" ? dailySeed(this.dateKey) : (((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0) || 1);
+  }
+
+  /** Show the control coach once per device. */
+  private maybeCoach(): void {
+    const key = "archrunner.coached.v1";
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch { /* show anyway */ }
+    this.hud.coach();
   }
 
   private snapshot(): Snapshot {
@@ -128,13 +136,13 @@ export class Game {
 
   private reactToEvents(): void {
     const s = this.sim, p = this.prev;
-    if (s.collected > p.collected) this.audio.play("collect");
+    if (s.collected > p.collected) { this.audio.play("collect"); this.renderer.burst("collect"); }
     if (s.nearMisses > p.nearMisses) { this.audio.play("nearmiss"); this.renderer.addShake(0.12); }
-    if (s.perfects > p.perfects) { this.audio.play("perfect"); this.renderer.addShake(0.06); this.hud.toast("PERFECT", "perfect"); }
+    if (s.perfects > p.perfects) { this.audio.play("perfect"); this.renderer.addShake(0.06); this.renderer.burst("perfect"); this.hud.toast("PERFECT", "perfect"); }
     if (s.blockRuns > p.blockRuns) { this.audio.play("blockstart"); this.hud.toast("BLOCK RUN", "block"); }
     if (s.flipActive && !p.flipActive) { this.audio.play("flip"); this.hud.toast("ARCH FLIP ×3", "flip"); }
-    if (s.flips > p.flips) { this.audio.play("flipbank"); this.hud.toast("FLIP BANKED", "flip"); this.renderer.addShake(0.1); }
-    if (!s.alive && p.alive) { this.audio.play("death"); this.renderer.addShake(1.0); }
+    if (s.flips > p.flips) { this.audio.play("flipbank"); this.hud.toast("FLIP BANKED", "flip"); this.renderer.addShake(0.1); this.renderer.burst("flip"); }
+    if (!s.alive && p.alive) { this.audio.play("death"); this.renderer.addShake(1.0); this.renderer.burst("death"); }
     this.prev = this.snapshot();
   }
 

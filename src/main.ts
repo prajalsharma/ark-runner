@@ -4,12 +4,17 @@ import { Game } from "./game/game.ts";
 import { dailyNumber, dailyBest, loadHistory } from "./game/daily.ts";
 import { SKINS, selectedSkin, selectSkin, isUnlocked } from "./game/cosmetics.ts";
 import type { Mode } from "./game/daily.ts";
+import { MockWalletProvider } from "./wallet/mock.ts";
+import type { WalletSession } from "./wallet/provider.ts";
 
 const canvas = document.getElementById("scene") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLElement;
 const overlay = document.getElementById("overlay") as HTMLElement;
 
 let game: Game | null = null;
+const wallet = new MockWalletProvider();
+let session: WalletSession | null = null;
+const shortAddr = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 function startGame(mode: Mode): void {
   overlay.classList.remove("show");
@@ -50,6 +55,7 @@ function showTitle(): void {
       <button id="free" class="btn ghost">FREE RUN</button>
       ${skinRow()}
       ${recentRuns()}
+      <button id="wallet" class="btn ghost small">${session ? `CONNECTED ${shortAddr(session.address)}` : "CONNECT WALLET (DEMO)"}</button>
       <div class="hint">← → MOVE · ↑/SPACE JUMP · ↓ SLIDE · SWIPE ON MOBILE · ESC PAUSE · M MUTE</div>
     </div>`;
   overlay.classList.add("show");
@@ -58,6 +64,10 @@ function showTitle(): void {
   overlay.querySelectorAll<HTMLButtonElement>(".skin").forEach((b) => {
     b.onclick = () => { selectSkin(b.dataset.skin!); showTitle(); };
   });
+  (overlay.querySelector("#wallet") as HTMLButtonElement).onclick = async () => {
+    if (session) { await wallet.disconnect(); session = null; } else { session = await wallet.connect(); }
+    showTitle();
+  };
 }
 
 showTitle();

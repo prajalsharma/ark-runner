@@ -20,12 +20,26 @@ const writeBest = (v: number): void => { try { localStorage.setItem(bestKey, Str
 export class HUD {
   private shownResult = false;
   private toastEl: HTMLElement;
+  private coachEl: HTMLElement;
   private toastTimer = 0;
+  private coachTimer = 0;
 
   constructor(private hud: HTMLElement, private overlay: HTMLElement) {
+    const app = document.getElementById("app") ?? document.body;
     this.toastEl = document.createElement("div");
     this.toastEl.id = "toast";
-    (document.getElementById("app") ?? document.body).appendChild(this.toastEl);
+    app.appendChild(this.toastEl);
+    this.coachEl = document.createElement("div");
+    this.coachEl.id = "coach";
+    app.appendChild(this.coachEl);
+  }
+
+  /** First-run onboarding banner; auto-dismisses. */
+  coach(): void {
+    this.coachEl.innerHTML = `<b>DODGE</b> the hazards · <b>↑ JUMP</b> the low bars · <b>↓ SLIDE</b> under the high ones · chain clean moves to build <b>FLOW</b>`;
+    this.coachEl.classList.add("show");
+    window.clearTimeout(this.coachTimer);
+    this.coachTimer = window.setTimeout(() => this.coachEl.classList.remove("show"), 5200);
   }
 
   update(sim: RunSim): void {
