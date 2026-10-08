@@ -11,6 +11,7 @@ import { AudioManager } from "../engine/audio.ts";
 import { attachInput } from "../engine/input.ts";
 import { type Mode, dailySeed, dateKeyUTC, dailyNumber, recordRun, dailyBest } from "./daily.ts";
 import { selectedSkin } from "./cosmetics.ts";
+import { submitRun } from "../net/api.ts";
 
 export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
 
@@ -100,6 +101,11 @@ export class Game {
       recordRun({ score: Math.floor(s.score), mode: this.mode, dateKey: this.dateKey, ts: Date.now(), dist: s.distance, flips: s.flips, blockRuns: s.blockRuns });
     }
     this.onEnd?.(s);
+    // Daily runs are submitted for server-side validation when a backend is set
+    // (no-op offline). The official score is the server's, not ours.
+    if (this.mode === "daily") {
+      void submitRun(s).then((r) => { if (r?.accepted) this.hud.toast("VERIFIED ✓", "perfect"); });
+    }
     const meta: ResultMeta = {
       mode: this.mode,
       dailyNo: this.mode === "daily" ? dailyNumber(this.dateKey) : undefined,

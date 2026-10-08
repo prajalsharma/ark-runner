@@ -35,10 +35,17 @@ pay-to-win, never touch score) selectable on the title. **Share card** (native s
 screen with mode select + skins + recent runs; result card shows mode, daily #, today's best, SHARE + MENU.
 Tests: daily seed is a pure function of the date and gives everyone the same world.
 
-## Phase 4 — Backend + anti-cheat
-`apps/api` (modular monolith): Auth, Player, Run, **Score (replay-validated)**, Competition state machine,
-Leaderboard, AntiCheat, Scheduler. PostgreSQL (authoritative) + Redis (live boards, rate limits, queues).
-Server owns seeds; client submits `{seed, inputs}`. See `anti-cheat.md`.
+## Phase 4 — Backend + anti-cheat ✅ (core shipped; infra deferred)
+Shipped and tested: **server-side replay validator** (`src/server/validate.ts`) — never trusts a client
+score; re-runs the canonical deterministic sim for the official score, with version pinning, input sanity
+(monotonic ticks, valid actions), a bot rate-limit, and fraud flags. **Competition state machine**
+(`src/server/competition.ts`) with guarded transitions (CREATED→…→SETTLED, + SETTLEMENT_FAILED retry) and a
+**validated-only leaderboard** (best-per-player, sorted). Shared **contracts** (`src/shared/contracts.ts`), a
+shared **replay runner** (`src/game/replay.ts`), a dependency-free **HTTP API** (`npm run serve`: `/validate`,
+`/daily`, `/health`), and an **optional client submit** that degrades to offline when no backend is set.
+Tests: honest run validates to its exact score; tampered score / wrong ruleset / impossible input rejected;
+illegal transitions throw; leaderboard takes only validated runs. Deferred: PostgreSQL + Redis persistence,
+auth, scheduler, horizontal scale.
 
 ## Phase 5 — Arch economy (behind the provider)
 `packages/arch` implements `ArchSettlementProvider` over `@arch-network/arch-sdk` 0.0.28, with the settlement
