@@ -7,6 +7,7 @@
  */
 import { Game } from "../game/game.ts";
 import { Attract } from "./attract.ts";
+import { Cutscene } from "./cutscene.ts";
 import { dailyNumber, dailyBest, loadHistory } from "../game/daily.ts";
 import { bestEver } from "../game/cosmetics.ts";
 import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColor, characterSwatch } from "../game/characters.ts";
@@ -30,6 +31,17 @@ export class Menu {
 
   open(): void {
     this.attract.start();
+    if (!this.introSeen()) { this.markIntroSeen(); this.playIntro(); return; }
+    this.renderHome();
+  }
+
+  private introSeen(): boolean { try { return localStorage.getItem("archrunner.intro.v1") === "1"; } catch { return false; } }
+  private markIntroSeen(): void { try { localStorage.setItem("archrunner.intro.v1", "1"); } catch { /* ephemeral */ } }
+  private playIntro(): void {
+    new Cutscene(this.overlay, () => this.start("free"), () => this.renderHome()).play();
+  }
+
+  private renderHome(): void {
     const n = dailyNumber();
     const best = bestEver();
     const dBest = dailyBest();
@@ -54,6 +66,7 @@ export class Menu {
           <button id="howto" class="navbtn">HOW IT WORKS</button>
           <button id="board" class="navbtn">LEADERBOARD</button>
           <button id="runner" class="navbtn">RUNNER</button>
+          <button id="story" class="navbtn">STORY</button>
           ${this.profile ? `<button id="profile" class="navbtn">PROFILE</button>` : ""}
         </div>
         ${walletRow}
@@ -64,6 +77,7 @@ export class Menu {
     this.bind("#howto", () => this.showHowTo());
     this.bind("#board", () => this.showLeaderboard());
     this.bind("#runner", () => this.showRunner());
+    this.bind("#story", () => this.playIntro());
     this.bind("#profile", () => this.showProfile());
     this.bind("#wallet", () => (this.session ? this.disconnect() : this.connect()));
   }

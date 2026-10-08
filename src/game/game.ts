@@ -37,6 +37,8 @@ export class Game {
   private paused = false;
   private debug = false;
   private prev: Snapshot;
+  private auditorAt = 260;   // next distance (world units) to drop an Auditor quip
+  private auditorN = 0;
   private dateKey = dateKeyUTC();
 
   constructor(canvas: HTMLCanvasElement, hudEl: HTMLElement, overlayEl: HTMLElement, opts: GameOpts = {}) {
@@ -96,6 +98,7 @@ export class Game {
     this.renderer.render(this.sim, now);
     this.hud.update(this.sim);
     if (this.debug) this.hud.setDebug(this.sim.debugLine());
+    this.maybeAuditor();
 
     if (this.sim.phase === "ended" && !this.ended) {
       this.ended = true;
@@ -148,6 +151,24 @@ export class Game {
     this.prev = this.snapshot();
   }
 
+  private static AUDITOR_LINES = [
+    "PLEASE STOP RUNNING.",
+    "YOUR VELOCITY IS SUSPICIOUS.",
+    "THAT WAS AN UNAUTHORIZED JUMP.",
+    "YOU HAVE COLLECTED TOO MANY COINS.",
+    "THIS IS NOW A COMPLIANCE ISSUE.",
+    "I CALCULATED YOUR ESCAPE ODDS. ANNOYING.",
+  ];
+
+  /** The Auditor heckles the runner at distance milestones (presentation only). */
+  private maybeAuditor(): void {
+    if (!this.sim.alive || this.sim.distance < this.auditorAt) return;
+    this.hud.toast(`⚠ AUDITOR: ${Game.AUDITOR_LINES[this.auditorN % Game.AUDITOR_LINES.length]}`, "auditor");
+    this.audio.play("nearmiss");
+    this.auditorN++;
+    this.auditorAt += 640;
+  }
+
   private buildSysbar(): HTMLElement {
     const bar = document.createElement("div");
     bar.id = "sysbar";
@@ -189,6 +210,8 @@ export class Game {
     this.ended = false;
     this.recorded = false;
     this.paused = false;
+    this.auditorAt = 260;
+    this.auditorN = 0;
     this.hud.hideResult();
   }
 
