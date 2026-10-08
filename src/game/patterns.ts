@@ -5,7 +5,7 @@
  * always has reaction time. tests/patterns.test.ts statistically verifies this.
  */
 import { SeededRandom } from "../engine/rng.ts";
-import { LANES, SEGMENT_LEN, type ObstacleType } from "./constants.ts";
+import { LANES, SEGMENT_LEN, isBlockRunSegment, type ObstacleType } from "./constants.ts";
 
 export type Obstacle = { z: number; lane: number; type: ObstacleType; id: number };
 export type Energy = { z: number; lane: number; y: number; id: number };
@@ -75,6 +75,27 @@ PATTERNS.three_lane_pressure = (c) => {
   c.obstacles.push({ id: nextId++, lane: blocked, type: "WALL", z: c.z0 + 17 });
 };
 
+// Block Run patterns: denser + more reward, but still beatable by construction
+// (no WALL/PIT across all three lanes, no coincident LOW+HIGH in a lane).
+PATTERNS.block_rush = (c) => {
+  energyLine(c, 0, c.z0 + 2, 11);                                           // long center reward line
+  c.obstacles.push({ id: nextId++, lane: -1, type: "WALL", z: c.z0 + 7 });  // hop out, hop back
+  c.obstacles.push({ id: nextId++, lane: 1, type: "WALL", z: c.z0 + 15 });
+};
+PATTERNS.block_leap = (c) => {
+  for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 6 });
+  for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 15 });
+  energyLine(c, c.rng.pick(LANES), c.z0 + 9, 4, 1.6); // air orbs between the bars
+};
+PATTERNS.block_weave = (c) => {
+  const a = c.rng.pick(LANES);
+  c.obstacles.push({ id: nextId++, lane: a, type: "WALL", z: c.z0 + 6 });
+  energyLine(c, a === 0 ? 1 : 0, c.z0 + 4, 5);
+  const b = c.rng.pick(LANES);
+  c.obstacles.push({ id: nextId++, lane: b, type: "HIGH", z: c.z0 + 16 });
+};
+const BLOCK = ["block_rush", "block_leap", "block_weave"];
+
 export class SegmentGenerator {
   constructor(private seed: number) {
     reset();
@@ -90,7 +111,9 @@ export class SegmentGenerator {
     const rng = new SeededRandom(this.seed ^ (index * 2654435761));
     const startZ = index * SEGMENT_LEN;
     const diff = this.difficulty(index);
-    const pool = index < 3 ? ["straight_easy"] : diff < 0.3 ? EASY : diff < 0.6 ? MED : HARD;
+    const pool = isBlockRunSegment(index)
+      ? BLOCK
+      : index < 3 ? ["straight_easy"] : diff < 0.3 ? EASY : diff < 0.6 ? MED : HARD;
     const c: Ctx = { rng, z0: startZ, obstacles: [], energy: [], difficulty: diff };
     PATTERNS[rng.pick(pool)]!(c);
     return { index, startZ, endZ: startZ + SEGMENT_LEN, obstacles: c.obstacles, energy: c.energy };

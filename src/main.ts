@@ -14,7 +14,7 @@ function showTitle(): void {
       <div class="title"><span class="accent">ARCH</span> RUNNER</div>
       <div class="sub" style="margin-top:10px">RUN THE ARCH · BANK THE SATS · CHAIN YOUR FLOW</div>
       <button id="run" class="btn">RUN THE ARCH</button>
-      <div class="hint">← → MOVE · ↑ / SPACE JUMP · ↓ SLIDE · SWIPE ON MOBILE</div>
+      <div class="hint">← → MOVE · ↑ / SPACE JUMP · ↓ SLIDE · SWIPE ON MOBILE · ESC PAUSE · M MUTE</div>
     </div>`;
   overlay.classList.add("show");
   (overlay.querySelector("#run") as HTMLButtonElement).onclick = () => {

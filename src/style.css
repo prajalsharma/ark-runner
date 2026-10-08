@@ -56,6 +56,50 @@ body {
 .btn:active { transform: translateY(1px); }
 .hint { margin-top: 14px; font-size: 10px; letter-spacing: 1px; color: #6b7187; }
 
+.stat.block { border-color: #b86bff; box-shadow: 0 0 18px rgba(184, 107, 255, 0.5); animation: pulse2 0.5s infinite alternate; }
+.stat.block .k { color: #d7b6ff; }
+.stat.block .v { color: #e4d2ff; }
+@keyframes pulse2 { to { box-shadow: 0 0 28px rgba(184, 107, 255, 0.85); } }
+
+/* Result stat grid */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 16px;
+}
+.stats-grid > div { display: flex; flex-direction: column; align-items: center; }
+.stats-grid .n { font-size: 20px; font-weight: 800; color: #ffd54a; }
+.stats-grid .l { font-size: 8px; letter-spacing: 1px; color: #8a90a6; margin-top: 2px; }
+@media (max-width: 420px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* Transient toast (PERFECT / BLOCK RUN) */
+#toast {
+  position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
+  font-size: 40px; font-weight: 900; letter-spacing: 4px; pointer-events: none;
+  opacity: 0; color: #ffd54a; text-shadow: 0 0 24px rgba(255, 213, 74, 0.7);
+}
+#toast.show { animation: toast 0.85s ease-out; }
+#toast.block { color: #d7b6ff; text-shadow: 0 0 26px rgba(184, 107, 255, 0.8); }
+#toast.perfect { color: #ffd54a; }
+@keyframes toast {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  70% { opacity: 1; transform: translate(-50%, -62%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -78%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { #toast.show { animation: none; opacity: 0; } }
+
+/* System buttons (mute / pause) */
+#sysbar {
+  position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px;
+  display: flex; gap: 8px; z-index: 5;
+}
+.sysbtn {
+  width: 40px; height: 40px; font-size: 18px; cursor: pointer;
+  color: #f4f1e6; background: rgba(10, 12, 20, 0.55);
+  border: 1px solid rgba(255, 122, 26, 0.3); border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+.sysbtn:active { transform: translateY(1px); }
+
 /* Title / start screen */
 .title { font-size: 44px; font-weight: 800; letter-spacing: 6px; }
 .title .accent { color: #ff7a1a; }

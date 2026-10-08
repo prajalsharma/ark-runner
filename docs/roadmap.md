@@ -7,10 +7,18 @@ Deterministic `RunSim`, seeded `SegmentGenerator` (all patterns beatable), 3-lan
 collision, energy, near-miss, **ARCH FLOW** multiplier, score, death, result overlay, Three.js render,
 keyboard + swipe input, title → run. Tests: replay-reproduces-score + no-impossible-segment, both passing.
 
-## Phase 2 — Vertical slice (feel + wow)
-Juice: camera shake/FOV on speed, hit feedback, particles, audio, **Hyper Flow** intensity.
-**Block Run** (block-tunnel burst) and **ARCH FLIP** (skill-based bank-or-flip gateway). Tutorial onboarding.
-Settings, pause, accessibility (reduced motion, colorblind-safe palette). Perf budget on mid-tier mobile.
+## Phase 2a — Feel + first "wow" ✅ (shipped)
+**Block Run** (deterministic periodic high-speed band: ×1.3 speed, ×2 score, denser-but-beatable patterns,
+world recolour + FOV kick + speed streaks). **Perfect Dodge** (tight same-lane clearance → bonus + extra flow).
+Juice: FOV ramps with speed, camera shake on impact/near-miss/death, **Hyper Flow** glow, Block Run tint.
+Procedural **audio** (WebAudio synth: event blips + speed-tracking engine hum, mute). **Pause** (Esc/P), mute
+(M / button), reduced-motion respected. Richer result card (perfects, block runs, max flow). Tests: Block Run +
+all new counters reproduce exactly on replay; pattern-fairness still holds. Determinism preserved (sim stays pure;
+feedback is counter-diffed in the orchestrator).
+
+## Phase 2b — Remaining vertical-slice work
+**ARCH FLIP** (lane-choice risk/reward gateway, deterministic + replay-safe). Tutorial onboarding. Settings,
+colorblind-safe palette, adjustable sensitivity. A second environment theme. Particles. Perf budget on mid-tier mobile.
 
 ## Phase 3 — MVP game (no money yet)
 Daily Challenge on a shared **daily seed**, local leaderboards, cosmetics (non-pay-to-win), run history,

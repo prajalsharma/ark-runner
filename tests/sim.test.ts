@@ -7,6 +7,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { RunSim, type InputEvent } from "../src/game/sim.ts";
 import { SegmentGenerator } from "../src/game/patterns.ts";
+import { isBlockRunSegment, BLOCK_START_SEG } from "../src/game/constants.ts";
 
 /** Re-run a recorded input stream against a fresh sim for the same tick count. */
 function replay(seed: number, inputs: InputEvent[], ticks: number): RunSim {
@@ -45,6 +46,21 @@ test("recorded inputs reproduce the same score on replay", () => {
   assert.equal(b.distance, a.distance);
   assert.equal(b.collected, a.collected);
   assert.equal(b.alive, a.alive);
+  // Phase-2 counters are part of the deterministic state and must reproduce too.
+  assert.equal(b.perfects, a.perfects, "perfects must reproduce");
+  assert.equal(b.blockRuns, a.blockRuns, "block runs must reproduce");
+  assert.equal(b.maxFlow, a.maxFlow, "max flow must reproduce");
+});
+
+test("Block Run bands are deterministic and gated past the learning phase", () => {
+  for (let i = 0; i < BLOCK_START_SEG; i++) assert.equal(isBlockRunSegment(i), false, `seg ${i} must be calm`);
+  // With period 16 / length 3 starting at 8, segments 13,14,15 are block runs; 16..28 are not.
+  assert.equal(isBlockRunSegment(13), true);
+  assert.equal(isBlockRunSegment(15), true);
+  assert.equal(isBlockRunSegment(16), false);
+  assert.equal(isBlockRunSegment(29), true);
+  // Pure function: same input, same output.
+  for (let i = 0; i < 200; i++) assert.equal(isBlockRunSegment(i), isBlockRunSegment(i));
 });
 
 test("different seeds produce different worlds (fair-but-varied)", () => {

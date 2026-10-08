@@ -10,6 +10,8 @@ import {
   GRAVITY, JUMP_V, JUMP_CLEAR_Y, SLIDE_SECS, PLAYER_DEPTH, SEGMENT_LEN, SPAWN_AHEAD,
   ENERGY_VALUE, DIST_PER_POINT, NEAR_MISS_POINTS, FLOW_PER_ACTION,
   FLOW_MULT_STEP, FLOW_MULT_MAX, FLOW_HYPER_AT,
+  isBlockRunSegment, BLOCK_SPEED_MULT, BLOCK_SCORE_MULT,
+  PERFECT_LOW_WINDOW, PERFECT_PIT_MAX_Y, PERFECT_SLIDE_FRAC, PERFECT_POINTS,
 } from "./constants.ts";
 
 export type Action = "left" | "right" | "jump" | "slide";
@@ -30,10 +32,15 @@ export class RunSim {
   energy = 0;
   collected = 0;
   nearMisses = 0;
+  perfects = 0;      // tight same-lane clearances
   flow = 0;          // consecutive clean actions
   flowMult = 1;
+  maxFlow = 0;       // peak flow reached this run
   alive = true;
   phase: "live" | "ended" = "live";
+  blockRun = false;  // inside a Block Run right now
+  blockRuns = 0;     // Block Runs entered this run
+  private wasBlock = false;
 
   readonly seed: number;
   readonly inputs: InputEvent[] = []; // recorded for replay / server validation
@@ -70,7 +77,15 @@ export class RunSim {
     if (!this.alive) return;
     this.tick++;
     this.elapsed += DT;
-    this.speed = Math.min(MAX_SPEED, START_SPEED + SPEED_RAMP * this.elapsed);
+
+    // Block Run is a deterministic function of the segment we're currently in.
+    const curSeg = Math.floor(this.distance / SEGMENT_LEN);
+    this.blockRun = isBlockRunSegment(curSeg);
+    if (this.blockRun && !this.wasBlock) this.blockRuns++;
+    this.wasBlock = this.blockRun;
+
+    const base = Math.min(MAX_SPEED, START_SPEED + SPEED_RAMP * this.elapsed);
+    this.speed = this.blockRun ? Math.min(MAX_SPEED * BLOCK_SPEED_MULT, base * BLOCK_SPEED_MULT) : base;
     this.distance += this.speed * DT;
 
     // Lane slide.
@@ -89,13 +104,16 @@ export class RunSim {
 
     this.ensureSegments();
     this.flowMult = Math.min(FLOW_MULT_MAX, 1 + this.flow * FLOW_MULT_STEP);
-    this.score += this.speed * DT * DIST_PER_POINT * this.flowMult; // distance score, flow-scaled
-    this.resolveWorld();
+    const gain = this.blockRun ? BLOCK_SCORE_MULT : 1;
+    this.score += this.speed * DT * DIST_PER_POINT * this.flowMult * gain; // distance score, flow- & block-scaled
+    this.resolveWorld(gain);
+    if (this.flow > this.maxFlow) this.maxFlow = this.flow;
 
     if (this.cap && this.elapsed >= this.cap) this.end(true);
   }
 
   get hyperFlow(): boolean { return this.flow >= FLOW_HYPER_AT; }
+  get maxFlowMult(): number { return Math.min(FLOW_MULT_MAX, 1 + this.maxFlow * FLOW_MULT_STEP); }
 
   private ensureSegments(): void {
     const cur = Math.floor(this.distance / SEGMENT_LEN);
@@ -109,7 +127,7 @@ export class RunSim {
     return Math.abs(this.laneX - this.lane * LANE_WIDTH) < 0.85;
   }
 
-  private resolveWorld(): void {
+  private resolveWorld(gain: number): void {
     const z = this.distance;
     for (const seg of this.segs.values()) {
       for (const o of seg.obstacles) {
@@ -122,10 +140,17 @@ export class RunSim {
             o.type === "HIGH" ? !this.sliding :
             /* PIT */ this.y < 0.25;
           if (hit) { this.end(false); return; }
+          // Perfect Dodge: beat the hazard with the tightest margin.
+          const perfect =
+            o.type === "LOW" ? this.y < JUMP_CLEAR_Y + PERFECT_LOW_WINDOW :
+            o.type === "PIT" ? this.y < PERFECT_PIT_MAX_Y :
+            o.type === "HIGH" ? this.slideTimer > SLIDE_SECS * PERFECT_SLIDE_FRAC :
+            false;
+          if (perfect) { this.perfects++; this.score += PERFECT_POINTS * this.flowMult * gain; this.addFlow(); }
           this.addFlow(); // dodged in-lane = a clean action
         } else if (Math.abs(o.lane - this.lane) === 1) {
           this.nearMisses++;
-          this.score += NEAR_MISS_POINTS * this.flowMult;
+          this.score += NEAR_MISS_POINTS * this.flowMult * gain;
           this.addFlow();
         }
       }
@@ -135,7 +160,7 @@ export class RunSim {
         if (e.lane === this.lane && this.laneAligned() && Math.abs(this.y - e.y) < 0.95) {
           this.collected++;
           this.energy += ENERGY_VALUE;
-          this.score += ENERGY_VALUE * this.flowMult;
+          this.score += ENERGY_VALUE * this.flowMult * gain;
           this.addFlow();
         }
       }

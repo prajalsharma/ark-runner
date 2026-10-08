@@ -48,3 +48,28 @@ export const FLOW_MULT_MAX = 4;
 export const SEGMENT_LEN = 24; // world units per generated segment
 export const SPAWN_AHEAD = 6; // keep this many segments generated ahead
 export const MATCH_SECONDS = 180; // competition-mode soft cap (endless otherwise)
+
+// Block Run — periodic high-speed spectacle. Driven purely by segment index, so
+// it is deterministic and reproduces exactly on the server replay.
+export const BLOCK_START_SEG = 8;    // no block runs during the learning phase
+export const BLOCK_PERIOD_SEGS = 16; // one block run per this many segments
+export const BLOCK_LEN_SEGS = 3;     // how many segments a block run lasts
+export const BLOCK_SPEED_MULT = 1.3; // speed boost while in a block run
+export const BLOCK_SCORE_MULT = 2;   // all points doubled during a block run
+
+/** True when segment `index` falls inside a Block Run band. Pure + deterministic. */
+export function isBlockRunSegment(index: number): boolean {
+  if (index < BLOCK_START_SEG) return false;
+  return (index % BLOCK_PERIOD_SEGS) >= (BLOCK_PERIOD_SEGS - BLOCK_LEN_SEGS);
+}
+
+// Perfect Dodge — tight clearance of a same-lane hazard (skill reward).
+export const PERFECT_LOW_WINDOW = 0.5;  // cleared a LOW by <= this margin above JUMP_CLEAR_Y
+export const PERFECT_PIT_MAX_Y = 0.95;  // cleared a PIT this low = barely made it
+export const PERFECT_SLIDE_FRAC = 0.72; // slid under a HIGH within the first part of the slide = last-moment
+export const PERFECT_POINTS = 60;
+
+// Presentation only (render/audio) — never read by the sim, so it can't affect scores.
+export const FOV_BASE = 62;
+export const FOV_MAX = 73;   // approached at MAX_SPEED
+export const FOV_BLOCK = 6;  // extra FOV while in a block run
