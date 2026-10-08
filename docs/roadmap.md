@@ -47,13 +47,18 @@ Tests: honest run validates to its exact score; tampered score / wrong ruleset /
 illegal transitions throw; leaderboard takes only validated runs. Deferred: PostgreSQL + Redis persistence,
 auth, scheduler, horizontal scale.
 
-## Phase 5 — Arch economy (behind the provider)
-`packages/arch` implements `ArchSettlementProvider` over `@arch-network/arch-sdk` 0.0.28, with the settlement
-program written in **Satellite** (`arch-satellite-*` 0.31, `arch_program` 0.12, `cargo build-sbf`, deploy via
-`arch-kit`), reusing the **escrow pattern proven E2E in our prior Scramble work**: per-competition PDA holds the
-pot in its ATA; program-signed payout to winners' forced ATAs; reclaim/timeout escape hatch. BIP-322 Bitcoin
-wallet connect (Xverse/UniSat/Leather/OKX); `requestAirdrop` for account rent. Entry fees + prizes in **our own
-APL token** (we mint + fund it — no protocol-native asset). Economy simulations pick the prize structure.
+## Phase 5 — Economy behind the settlement provider ✅ (core shipped; chain wiring deferred)
+Shipped and tested: the `GameSettlementProvider` seam (`src/chain/types.ts`) the game talks to instead of any
+chain code; a correct in-memory **MockSettlementProvider** (`src/chain/mock.ts`) enforcing the real rules —
+separated buckets (entryFees / prizeReserve / protocolRevenue), **integer sats (`bigint`, no floats)**, the
+**solvency invariant**, **idempotent settle** (no double-pay), and **reclaim** (refund before settlement);
+exact prize math (`src/economy/distribution.ts`) that sums to the pool with no sats created/destroyed; and an
+**honest `ArchSettlementProvider` skeleton** (`src/chain/arch.ts`) that throws rather than faking a tx — each
+method documents its mapping to the proven escrow flow. Default factory returns Mock, so nothing fake ships.
+Deferred (needs live chain): wire the Arch provider over `@arch-network/arch-sdk` 0.0.28 + a deployed
+**Satellite** program (`arch-satellite-*` 0.31, `arch_program` 0.12, `cargo build-sbf`, `arch-kit`), reusing the
+Scramble escrow pattern (per-competition PDA ATA, program-signed payout to forced ATAs, reclaim/timeout),
+BIP-322 wallet connect, `requestAirdrop` for rent, entries/prizes in **our own APL token** (no protocol-native asset).
 
 ## Phase 6 — Competitions live
 Hourly/weekly windows, prize pools, optional commit-reveal lucky-runner, settlement verification UI,
