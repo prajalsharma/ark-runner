@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "serve": "tsx src/server/index.ts",
+    "simulate": "tsx src/economy/simulate.ts",
     "typecheck": "tsc -b --noEmit",
     "test": "tsx --test tests/*.test.ts"
   },

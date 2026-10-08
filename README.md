@@ -8,16 +8,23 @@ build **ARCH FLOW**, bank energy, and climb a skill leaderboard. Prizes (later p
 and paid out on Arch; the game itself is fully playable free, with no wallet required.
 
 ## Status
-**Phase 1 — greybox, shipped.** Deterministic simulation, procedurally generated (always-beatable) worlds,
-Flow multiplier, scoring, Three.js rendering, keyboard + swipe. Blockchain is isolated and not wired yet
-(see `docs/roadmap.md`).
+**Phases 1–6 cores shipped** (see `docs/roadmap.md`). A polished deterministic runner (Block Run, ARCH FLIP,
+Flow, juice, procedural audio), Daily Block + Free Run with local records, cosmetics, and a share card — plus
+the backend/economy layers that make it a competition: a **server-side replay validator** (never trusts a
+client score), a **competition state machine + validated-only leaderboard**, the **economy** (integer sats,
+solvency invariant, exact prize splits) behind a `GameSettlementProvider`, and the full **CompetitionEngine**
+loop with an **economy simulator**. The real Arch settlement backend is an honest, un-wired skeleton (it throws
+rather than faking a transaction) — wiring it needs a deployed program + live testnet. Blockchain stays fully
+isolated; the game is 100% playable with no wallet.
 
 ## Quick start
 ```bash
 npm install
-npm run dev        # http://localhost:5180
+npm run dev        # http://localhost:5180 — play (Daily Block / Free Run)
 npm run build      # typecheck + production bundle
-npm test           # determinism + pattern-fairness tests
+npm test           # 27 tests: determinism, anti-cheat, economy, competition
+npm run serve      # anti-cheat API (POST /validate, GET /daily, /health)
+npm run simulate   # economy simulation across 100→100k players
 ```
 
 ## Controls

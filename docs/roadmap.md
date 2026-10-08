@@ -60,6 +60,13 @@ Deferred (needs live chain): wire the Arch provider over `@arch-network/arch-sdk
 Scramble escrow pattern (per-competition PDA ATA, program-signed payout to forced ATAs, reclaim/timeout),
 BIP-322 wallet connect, `requestAirdrop` for rent, entries/prizes in **our own APL token** (no protocol-native asset).
 
-## Phase 6 — Competitions live
-Hourly/weekly windows, prize pools, optional commit-reveal lucky-runner, settlement verification UI,
-solvency monitoring, legal review gate before any real-money mode. Free + demo modes always default.
+## Phase 6 — Competitions live ✅ (core shipped; infra + UI deferred)
+Shipped and tested: **CompetitionEngine** (`src/server/engine.ts`) — the full async loop wired end to end
+(enter → pay into pot → submit server-validated run on the shared seed → leaderboard → finalize → distribute
+the whole prize reserve to the ranked board → settle, solvent + exact + once; wrong-seed runs rejected; empty
+competitions settle cleanly). **Economy simulator** (`src/economy/simulator.ts` + `npm run simulate`) across
+100→100k players with participation, multi-entry, and whales, reporting deposits / revenue / prizes / capital
+efficiency — money conservation guaranteed (deposits = revenue + prizes), proven deterministic in tests.
+Deferred: hourly/weekly scheduling, optional commit-reveal lucky-runner (needs the block-hash source),
+settlement-verification UI, live solvency monitoring, and the **legal review gate before any real-money mode**.
+Free + demo modes always default.
