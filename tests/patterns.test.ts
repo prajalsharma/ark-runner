@@ -7,7 +7,8 @@
  */
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { SegmentGenerator } from "../src/game/patterns.ts";
+import { SegmentGenerator, isFlipGateSegment } from "../src/game/patterns.ts";
+import { isBlockRunSegment } from "../src/game/constants.ts";
 
 test("10,000 segments across seeds contain no impossible depth", () => {
   for (let seed = 1; seed <= 20; seed++) {
@@ -32,6 +33,40 @@ test("10,000 segments across seeds contain no impossible depth", () => {
       }
     }
   }
+});
+
+test("consecutive same-lane hazards leave fair reaction distance (>= 12u)", () => {
+  // Block Run and flip stretches are the designed-expert exception — excluded here.
+  for (let seed = 1; seed <= 15; seed++) {
+    const gen = new SegmentGenerator(seed * 7919);
+    const perLane = new Map<number, number[]>();
+    for (let i = 0; i < 200; i++) {
+      if (isBlockRunSegment(i) || isFlipGateSegment(i)) continue;
+      for (const o of gen.generate(i).obstacles) {
+        const arr = perLane.get(o.lane) ?? [];
+        arr.push(o.z); perLane.set(o.lane, arr);
+      }
+    }
+    for (const [lane, zs] of perLane) {
+      zs.sort((a, b) => a - b);
+      for (let k = 1; k < zs.length; k++) {
+        assert.ok(zs[k]! - zs[k - 1]! >= 11.9, `seed ${seed} lane ${lane}: hazards ${zs[k - 1]}→${zs[k]} too close`);
+      }
+    }
+  }
+});
+
+test("generation is varied — no pattern repeats back-to-back, many distinct", () => {
+  const gen = new SegmentGenerator(424242);
+  const names: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    if (isBlockRunSegment(i) || isFlipGateSegment(i) || i < 6) continue; // skip scripted/expert
+    names.push(gen.patternNameAt(i));
+  }
+  let maxRun = 1, run = 1;
+  for (let i = 1; i < names.length; i++) { run = names[i] === names[i - 1] ? run + 1 : 1; maxRun = Math.max(maxRun, run); }
+  assert.ok(maxRun <= 2, `a pattern repeated ${maxRun} segments running`);
+  assert.ok(new Set(names).size >= 6, `only ${new Set(names).size} distinct patterns across 50+ segments`);
 });
 
 test("same seed+index is reproducible", () => {

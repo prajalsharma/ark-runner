@@ -1,8 +1,14 @@
 /**
- * Procedural segment generation. Deterministic (seed + segmentIndex), ramps in
- * difficulty, and — critically — every emitted pattern is BEATABLE. A WALL never
- * blocks all three lanes at the same depth; obstacles are spaced so the runner
- * always has reaction time. tests/patterns.test.ts statistically verifies this.
+ * Procedural segment generation — "designed procedural content", not random blocks.
+ * Deterministic (seed + segmentIndex), so Daily Block is identical for everyone and
+ * server replay reproduces exactly. Guarantees:
+ *  - every segment is BEATABLE (no 3-lane WALL/PIT wall, no coincident LOW+HIGH);
+ *  - hazards sit in a band [z0+6, z0+18] so consecutive same-lane hazards are always
+ *    >= ~12 units apart (fair reaction time) — block/flip stretches are the designed
+ *    expert exception;
+ *  - a scripted teaching opening, pacing "phrases", and anti-repetition memory
+ *    (never the same pattern 3 segments running) keep runs varied.
+ * tests/patterns.test.ts verifies beatability, reaction spacing, and variety.
  */
 import { SeededRandom } from "../engine/rng.ts";
 import {
@@ -31,121 +37,161 @@ const reset = () => { nextId = 1; };
 
 type Ctx = { rng: SeededRandom; z0: number; obstacles: Obstacle[]; energy: Energy[]; difficulty: number };
 
+const wall = (c: Ctx, lane: number, z: number): void => void c.obstacles.push({ id: nextId++, lane, type: "WALL", z });
+const hazard = (c: Ctx, lane: number, type: ObstacleType, z: number): void => void c.obstacles.push({ id: nextId++, lane, type, z });
 function energyLine(c: Ctx, lane: number, z: number, n: number, y = 0): void {
   for (let i = 0; i < n; i++) c.energy.push({ id: nextId++, lane, z: z + i * 1.6, y });
 }
+const SIDES = [-1, 1] as const;
 
-/** Pattern library. Each fills a ~SEGMENT_LEN window from z0. All beatable. */
+/** Pattern library. Each fills a ~SEGMENT_LEN window; hazards stay within [z0+6, z0+18]. */
 const PATTERNS: Record<string, (c: Ctx) => void> = {
-  straight_easy(c) {
-    const lane = c.rng.pick(LANES);
-    energyLine(c, lane, c.z0 + 4, 6);
+  // --- flowy / breather (no hazards) ---
+  straight_easy(c) { energyLine(c, c.rng.pick(LANES), c.z0 + 6, 6); },
+  coin_switch(c) { energyLine(c, c.rng.pick(SIDES), c.z0 + 6, 6); },           // coins off-center → teach lane change
+  coin_trail(c) {                                                              // zigzag coins guide movement
+    energyLine(c, 0, c.z0 + 4, 3);
+    energyLine(c, c.rng.pick(SIDES), c.z0 + 9, 3);
+    energyLine(c, 0, c.z0 + 14, 3);
   },
+  // --- single mechanic ---
   single_wall(c) {
     const blocked = c.rng.pick(LANES);
-    c.obstacles.push({ id: nextId++, lane: blocked, type: "WALL", z: c.z0 + 12 });
+    wall(c, blocked, c.z0 + 12);
     for (const l of LANES) if (l !== blocked) energyLine(c, l, c.z0 + 10, 3);
   },
-  jump_low(c) {
-    // LOW can span all lanes — you jump it. Floating reward for the brave.
-    for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 12 });
-    energyLine(c, c.rng.pick(LANES), c.z0 + 12, 3, 1.6); // air orbs over the bar
-  },
-  slide_high(c) {
-    for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "HIGH", z: c.z0 + 12 });
-    energyLine(c, c.rng.pick(LANES), c.z0 + 16, 4);
-  },
+  jump_low(c) { for (const l of LANES) hazard(c, l, "LOW", c.z0 + 12); energyLine(c, c.rng.pick(LANES), c.z0 + 12, 3, 1.6); },
+  slide_high(c) { for (const l of LANES) hazard(c, l, "HIGH", c.z0 + 12); energyLine(c, c.rng.pick(LANES), c.z0 + 16, 3); },
   pit_gap(c) {
     const safe = c.rng.pick(LANES);
-    for (const l of LANES) if (l !== safe) c.obstacles.push({ id: nextId++, lane: l, type: "PIT", z: c.z0 + 12 });
-    energyLine(c, safe, c.z0 + 8, 5);
+    for (const l of LANES) if (l !== safe) hazard(c, l, "PIT", c.z0 + 12);
+    energyLine(c, safe, c.z0 + 7, 5);
   },
+  pit_hop(c) {                                                                 // jump a pit, air coins reward it
+    const l = c.rng.pick(LANES);
+    hazard(c, l, "PIT", c.z0 + 12);
+    energyLine(c, l, c.z0 + 9, 4, 1.6);
+    for (const o of LANES) if (o !== l) energyLine(c, o, c.z0 + 7, 2);
+  },
+  // --- route choice ---
+  gate_choice(c) {                                                             // center blocked → pick a side
+    wall(c, 0, c.z0 + 12);
+    for (const l of SIDES) energyLine(c, l, c.z0 + 7, 4);
+  },
+  reward_risk(c) {                                                             // one open lane holds a fat line
+    const open = c.rng.pick(LANES);
+    for (const l of LANES) if (l !== open) wall(c, l, c.z0 + 14);
+    energyLine(c, open, c.z0 + 6, 8);
+  },
+  high_low_lane(c) {                                                           // slide one lane / jump another / dodge third
+    const a = c.rng.pick(LANES);
+    let b = c.rng.pick(LANES); if (b === a) b = LANES[(LANES.indexOf(a) + 1) % 3]!;
+    hazard(c, a, "HIGH", c.z0 + 8);   // staggered depths so no single depth needs jump+slide
+    hazard(c, b, "LOW", c.z0 + 16);
+    const open = LANES.find((l) => l !== a && l !== b)!;
+    energyLine(c, open, c.z0 + 7, 4);
+  },
+  // --- pressure ---
   double_switch(c) {
     const a = c.rng.pick(LANES);
-    let b = c.rng.pick(LANES);
-    if (b === a) b = LANES[(LANES.indexOf(a) + 1) % 3]!;
-    c.obstacles.push({ id: nextId++, lane: a, type: "WALL", z: c.z0 + 8 });
-    c.obstacles.push({ id: nextId++, lane: b, type: "WALL", z: c.z0 + 16 });
+    let b = c.rng.pick(LANES); if (b === a) b = LANES[(LANES.indexOf(a) + 1) % 3]!;
+    wall(c, a, c.z0 + 8); wall(c, b, c.z0 + 16);
   },
-  combo_chain(c) {
-    // jump then slide — the classic rhythm test.
-    for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 8 });
-    for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "HIGH", z: c.z0 + 18 });
-    energyLine(c, c.rng.pick(LANES), c.z0 + 12, 3);
+  zigzag_walls(c) {                                                            // alternating side walls, center always open
+    const a = c.rng.pick(SIDES);
+    wall(c, a, c.z0 + 7); wall(c, -a, c.z0 + 16);
+    energyLine(c, 0, c.z0 + 6, 6);
   },
-  reward_risk(c) {
-    // two lanes walled; the open lane holds a big energy line (risk = tight path).
-    const open = c.rng.pick(LANES);
-    for (const l of LANES) if (l !== open) c.obstacles.push({ id: nextId++, lane: l, type: "WALL", z: c.z0 + 14 });
-    energyLine(c, open, c.z0 + 6, 9);
+  combo_chain(c) {                                                             // jump then slide — rhythm (12u apart)
+    for (const l of LANES) hazard(c, l, "LOW", c.z0 + 6);
+    for (const l of LANES) hazard(c, l, "HIGH", c.z0 + 18);
+    energyLine(c, c.rng.pick(LANES), c.z0 + 12, 2);
+  },
+  three_lane_pressure(c) {
+    for (const l of LANES) hazard(c, l, "LOW", c.z0 + 6);
+    wall(c, c.rng.pick(LANES), c.z0 + 18);
+  },
+  // --- Block Run (dense, designed-expert; excluded from the strict reaction test) ---
+  block_rush(c) { energyLine(c, 0, c.z0 + 2, 11); wall(c, -1, c.z0 + 7); wall(c, 1, c.z0 + 15); },
+  block_leap(c) {
+    for (const l of LANES) hazard(c, l, "LOW", c.z0 + 6);
+    for (const l of LANES) hazard(c, l, "LOW", c.z0 + 15);
+    energyLine(c, c.rng.pick(LANES), c.z0 + 9, 4, 1.6);
+  },
+  block_weave(c) {
+    const a = c.rng.pick(LANES);
+    wall(c, a, c.z0 + 6); energyLine(c, a === 0 ? 1 : 0, c.z0 + 4, 5);
+    let b = c.rng.pick(LANES); if (b === a) b = LANES[(LANES.indexOf(a) + 1) % 3]!;
+    hazard(c, b, "HIGH", c.z0 + 16);
   },
 };
 
-const EASY = ["straight_easy", "single_wall", "jump_low", "slide_high"];
-const MED = ["single_wall", "jump_low", "slide_high", "pit_gap", "double_switch"];
-const HARD = ["double_switch", "combo_chain", "pit_gap", "reward_risk", "three_lane_pressure"];
-PATTERNS.three_lane_pressure = (c) => {
-  for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 7 });
-  const blocked = c.rng.pick(LANES);
-  c.obstacles.push({ id: nextId++, lane: blocked, type: "WALL", z: c.z0 + 17 });
-};
-
-// Block Run patterns: denser + more reward, but still beatable by construction
-// (no WALL/PIT across all three lanes, no coincident LOW+HIGH in a lane).
-PATTERNS.block_rush = (c) => {
-  energyLine(c, 0, c.z0 + 2, 11);                                           // long center reward line
-  c.obstacles.push({ id: nextId++, lane: -1, type: "WALL", z: c.z0 + 7 });  // hop out, hop back
-  c.obstacles.push({ id: nextId++, lane: 1, type: "WALL", z: c.z0 + 15 });
-};
-PATTERNS.block_leap = (c) => {
-  for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 6 });
-  for (const l of LANES) c.obstacles.push({ id: nextId++, lane: l, type: "LOW", z: c.z0 + 15 });
-  energyLine(c, c.rng.pick(LANES), c.z0 + 9, 4, 1.6); // air orbs between the bars
-};
-PATTERNS.block_weave = (c) => {
-  const a = c.rng.pick(LANES);
-  c.obstacles.push({ id: nextId++, lane: a, type: "WALL", z: c.z0 + 6 });
-  energyLine(c, a === 0 ? 1 : 0, c.z0 + 4, 5);
-  const b = c.rng.pick(LANES);
-  c.obstacles.push({ id: nextId++, lane: b, type: "HIGH", z: c.z0 + 16 });
-};
+// Pacing "phrases" — give the run emotional rhythm instead of a flat difficulty ramp.
+const FLOW = ["straight_easy", "coin_trail", "coin_switch", "single_wall"];
+const CHOICE = ["gate_choice", "reward_risk", "high_low_lane", "zigzag_walls"];
+const TECHNICAL = ["jump_low", "slide_high", "combo_chain", "pit_hop"];
+const BREATHER = ["coin_trail", "straight_easy", "coin_switch"];
+const RISK = ["double_switch", "zigzag_walls", "three_lane_pressure", "reward_risk"];
+const PHRASES = [FLOW, CHOICE, TECHNICAL, BREATHER, RISK];
 const BLOCK = ["block_rush", "block_leap", "block_weave"];
 
-/** Flip gate: the flip lane holds a fat reward behind beatable hazards; the other
- *  lanes are clearly safe so "stay safe" is a real (duller) option. */
+// Curated opening — teach one thing at a time (move → lane → dodge → jump → slide → breather).
+const INTRO_SCRIPT = ["straight_easy", "coin_switch", "single_wall", "jump_low", "slide_high", "coin_trail"];
+
+/** Flip gate: the flip lane holds a fat reward behind beatable hazards; other lanes are safe. */
 function buildFlipGate(c: Ctx, flipLane: number): void {
-  // Flip lane: jump a LOW, grab the reward line, slide a HIGH on the way out.
-  c.obstacles.push({ id: nextId++, lane: flipLane, type: "LOW", z: c.z0 + 10 });
-  energyLine(c, flipLane, c.z0 + 12, 8);
-  c.obstacles.push({ id: nextId++, lane: flipLane, type: "HIGH", z: c.z0 + 20 });
-  // Safe lanes: a small consolation orb, no hazards.
+  hazard(c, flipLane, "LOW", c.z0 + 10);
+  energyLine(c, flipLane, c.z0 + 12, 7);
+  hazard(c, flipLane, "HIGH", c.z0 + 18);
   for (const l of LANES) if (l !== flipLane) c.energy.push({ id: nextId++, lane: l, z: c.z0 + 12, y: 0 });
 }
 
 export class SegmentGenerator {
-  constructor(private seed: number) {
-    reset();
+  constructor(private seed: number) { reset(); }
+
+  private difficulty(index: number): number { return Math.min(1, index / 60); }
+
+  private nameRng(index: number): SeededRandom { return new SeededRandom(((this.seed >>> 0) ^ (index * 2246822519)) >>> 0); }
+
+  private phrasePool(index: number): string[] {
+    const p = Math.floor((index - INTRO_SCRIPT.length) / 3) % PHRASES.length;
+    const pool = PHRASES[(p + PHRASES.length) % PHRASES.length]!;
+    return pool === RISK && index < 18 ? CHOICE : pool; // ease players in before the RISK phrase
   }
 
-  /** difficulty 0..1 ramps with segment index (and thus distance/time). */
-  private difficulty(index: number): number {
-    return Math.min(1, index / 60);
+  /** The pattern a segment would use before anti-repetition. Pure (seed+index). */
+  private rawName(index: number): string {
+    if (isFlipGateSegment(index)) return "flip_gate";
+    if (isBlockRunSegment(index)) return this.nameRng(index).pick(BLOCK);
+    if (index < INTRO_SCRIPT.length) return INTRO_SCRIPT[index]!;
+    return this.nameRng(index).pick(this.phrasePool(index));
   }
+
+  /** Avoid the same pattern 3 segments running (only in the free phrase region). */
+  private resolvedName(index: number): string {
+    const name = this.rawName(index);
+    if (index < INTRO_SCRIPT.length || isFlipGateSegment(index) || isBlockRunSegment(index)) return name;
+    const prev1 = this.rawName(index - 1), prev2 = this.rawName(index - 2);
+    if (name !== prev1 && name !== prev2) return name;
+    const pool = this.phrasePool(index);
+    const start = Math.max(0, pool.indexOf(name));
+    for (let k = 1; k <= pool.length; k++) {
+      const cand = pool[(start + k) % pool.length]!;
+      if (cand !== prev1 && cand !== prev2) return cand;
+    }
+    return name;
+  }
+
+  /** The pattern name actually used at a segment (post anti-repetition). For tests/debug. */
+  patternNameAt(index: number): string { return this.resolvedName(index); }
 
   generate(index: number): Segment {
-    // Per-segment RNG derived from seed+index so segments are independent & stable.
     const rng = new SeededRandom(this.seed ^ (index * 2654435761));
     const startZ = index * SEGMENT_LEN;
-    const diff = this.difficulty(index);
-    const c: Ctx = { rng, z0: startZ, obstacles: [], energy: [], difficulty: diff };
-    if (isFlipGateSegment(index)) {
-      buildFlipGate(c, flipLaneFor(this.seed, index));
-    } else {
-      const pool = isBlockRunSegment(index)
-        ? BLOCK
-        : index < 3 ? ["straight_easy"] : diff < 0.3 ? EASY : diff < 0.6 ? MED : HARD;
-      PATTERNS[rng.pick(pool)]!(c);
-    }
+    const c: Ctx = { rng, z0: startZ, obstacles: [], energy: [], difficulty: this.difficulty(index) };
+    const name = this.resolvedName(index);
+    if (name === "flip_gate") buildFlipGate(c, flipLaneFor(this.seed, index));
+    else PATTERNS[name]!(c);
     return { index, startZ, endZ: startZ + SEGMENT_LEN, obstacles: c.obstacles, energy: c.energy };
   }
 }
