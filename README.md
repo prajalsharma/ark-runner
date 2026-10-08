@@ -8,24 +8,40 @@ build **ARCH FLOW**, bank energy, and climb a skill leaderboard. Prizes (later p
 and paid out on Arch; the game itself is fully playable free, with no wallet required.
 
 ## Status
-**Phases 1–6 cores shipped** (see `docs/roadmap.md`). A polished deterministic runner (Block Run, ARCH FLIP,
-Flow, juice, procedural audio), Daily Block + Free Run with local records, cosmetics, and a share card — plus
-the backend/economy layers that make it a competition: a **server-side replay validator** (never trusts a
-client score), a **competition state machine + validated-only leaderboard**, the **economy** (integer sats,
-solvency invariant, exact prize splits) behind a `GameSettlementProvider`, and the full **CompetitionEngine**
-loop with an **economy simulator**. The real Arch settlement backend is an honest, un-wired skeleton (it throws
-rather than faking a transaction) — wiring it needs a deployed program + live testnet. Blockchain stays fully
-isolated; the game is 100% playable with no wallet.
+A genuinely playable, polished arcade game — fun first, blockchain second. Shipped:
+
+- **Game**: deterministic 3-lane runner — move/jump/slide, **ARCH FLOW**, **Perfect Dodge**, **Block Run**,
+  **ARCH FLIP** (opt-in risk gate), jump buffer, fair reaction-spaced procedural levels (phrases +
+  anti-repetition + scripted opening).
+- **World & feel**: a scrolling **Bitcoin city** (towers + Arch ring-gates), a **procedural 3D character**
+  (run/jump/slide), particles, camera FOV/shake, **dynamic procedural audio**, a **death moment** (slow-mo
+  camera + why-you-died + "one more run" hook).
+- **Narrative**: skippable opening cutscene ("The Block Bandit") + **the Auditor** antagonist with in-run quips.
+- **Modes & meta**: **Daily Block** (shared UTC-date seed + a daily challenge theme/goal) and **Free Run**;
+  **2 characters** (cosmetic only), **wallet-linked profile** (name persists), **progression + 9 achievements**,
+  **settings** (sound / reduced-motion / graphics), **adaptive performance**, local leaderboard + share card.
+- **Competition backend** (runnable, not hosted): server-side **replay validator** (never trusts a client
+  score), **competition state machine + validated-only leaderboard**, **CompetitionEngine** end-to-end, and an
+  **economy** (integer sats, separated buckets, solvency invariant, exact prize splits) + **simulator**.
+- **Wallet**: **real** connect for **UniSat / OKX** (BIP-322 sign); Xverse/Leather detected + guided; an
+  explicit **DEMO** fallback so it's playable with no extension.
+
+**Honestly simulated / not yet live:** on-chain settlement (the `ArchSettlementProvider` *throws* rather than
+faking a tx — needs a deployed Satellite program + funded testnet), and a hosted global leaderboard. All mocks
+are labelled **DEMO** in the UI; nothing fake is shown as real (see `docs/FORENSIC_AUDIT.md`). Blockchain is
+fully isolated — the game is 100% playable with no wallet.
 
 ## Quick start
 ```bash
 npm install
-npm run dev        # http://localhost:5180 — play (Daily Block / Free Run)
+npm run dev        # http://localhost:5180 — cutscene → Daily Block / Free Run
 npm run build      # typecheck + production bundle
-npm test           # 27 tests: determinism, anti-cheat, economy, competition
+npm test           # 44 tests: determinism, coins, anti-cheat, economy, competition, identity, achievements…
 npm run serve      # anti-cheat API (POST /validate, GET /daily, /health)
 npm run simulate   # economy simulation across 100→100k players
 ```
+> Note: the *feel* (3D, audio, real wallet handshake) needs a real browser — run `npm run dev`, and install
+> UniSat or OKX to test a real wallet connect. CI can't render a canvas or drive an extension.
 
 ## Controls
 Desktop: `A`/`D` or `←`/`→` move · `W`/`↑`/`Space` jump · `S`/`↓` slide.
@@ -42,13 +58,14 @@ abstraction (Mock for dev, `ArchSettlementProvider` for real), reusing an escrow
 reclaim pattern already proven end-to-end on Arch testnet.
 
 ## Docs
-- `docs/product.md` — game design & modes
+- `docs/FORENSIC_AUDIT.md` — REAL vs SIMULATED matrix (what's genuinely wired, grep-verified)
+- `docs/current-state-audit.md` · `docs/bug-register.md` — honest state + bug verdicts
+- `docs/product.md` · `docs/gameplay.md` — game design & mechanics
 - `docs/architecture.md` — engine, backend, blockchain isolation
 - `docs/economics.md` — prize funding, solvency, legal flags
-- `docs/anti-cheat.md` — replay validation
-- `docs/arch-capabilities.md` — Arch Network capability matrix (what's verified vs. custom)
-- `docs/decision-log.md` — ADR log · `docs/roadmap.md` — phases
-- `DEMO.md` — how to show it
+- `docs/anti-cheat.md` — replay validation · `docs/security.md` — trust model
+- `docs/arch-capabilities.md` / `docs/arch-assumptions.md` — Arch capability matrix (verified vs. needs-confirmation)
+- `docs/decision-log.md` — ADR log · `docs/roadmap.md` — phases · `DEMO.md` — how to show it
 
 ## Legal
 Real-money competition mixing money + chance + prizes carries regulatory risk and **requires professional
