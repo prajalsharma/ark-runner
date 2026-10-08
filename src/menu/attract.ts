@@ -7,7 +7,7 @@
 import { DT } from "../game/constants.ts";
 import { RunSim, type Action } from "../game/sim.ts";
 import { Renderer } from "../game/render.ts";
-import { selectedSkin } from "../game/cosmetics.ts";
+import { selectedCharacterColor } from "../game/characters.ts";
 
 /** Heuristic autopilot: dodge walls, jump lows/pits, slide highs. Just needs to look alive. */
 function decide(sim: RunSim): Action | null {
@@ -45,7 +45,7 @@ export class Attract {
     this.canvas = document.createElement("canvas");
     this.canvas.id = "attract";
     (document.getElementById("app") ?? document.body).appendChild(this.canvas);
-    this.renderer = new Renderer(this.canvas, selectedSkin().color);
+    this.renderer = new Renderer(this.canvas, selectedCharacterColor());
     this.sim = new RunSim(this.freshSeed());
     this.loop = this.loop.bind(this);
   }
@@ -65,6 +65,9 @@ export class Attract {
     cancelAnimationFrame(this.raf);
     this.canvas.classList.remove("show");
   }
+
+  /** Live-recolour the attract runner (character preview). */
+  setColor(hex: number): void { this.renderer.setPlayerColor(hex); }
 
   private loop(now: number): void {
     if (!this.running) return;

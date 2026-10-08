@@ -188,9 +188,14 @@ export class RunSim {
         }
       }
       for (const e of seg.energy) {
-        if (this.resolved.has(e.id) || e.z > z + PLAYER_DEPTH) continue;
-        this.resolved.add(e.id);
+        // A coin is only "resolved" when COLLECTED — never just for being passed.
+        // Uncollected coins stay visible and scroll past naturally (view() culls them
+        // behind the player). Collection happens only in a window around the player
+        // plane, so coins already behind you can't be grabbed late. (Fixes coins in
+        // other lanes vanishing at the player instead of flying past — GAME-001.)
+        if (this.resolved.has(e.id) || e.z > z + PLAYER_DEPTH || e.z < z - PLAYER_DEPTH) continue;
         if (e.lane === this.lane && this.laneAligned() && Math.abs(this.y - e.y) < 0.95) {
+          this.resolved.add(e.id);
           this.collected++;
           this.energy += ENERGY_VALUE;
           this.score += ENERGY_VALUE * this.flowMult * gain;

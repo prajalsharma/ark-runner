@@ -148,6 +148,12 @@ export class Renderer {
     this.cam.updateProjectionMatrix();
   }
 
+  /** Recolour the runner live (character selection preview). */
+  setPlayerColor(hex: number): void {
+    this.cPlayer.set(hex);
+    (this.player.material as THREE.MeshStandardMaterial).color.set(hex);
+  }
+
   /** Release the WebGL context (called when a game ends, so contexts don't leak
    *  across menu↔game cycles). */
   dispose(): void {

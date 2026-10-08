@@ -10,7 +10,7 @@ import { HUD, type ResultMeta } from "../ui.ts";
 import { AudioManager } from "../engine/audio.ts";
 import { attachInput } from "../engine/input.ts";
 import { type Mode, dailySeed, dateKeyUTC, dailyNumber, recordRun, dailyBest } from "./daily.ts";
-import { selectedSkin } from "./cosmetics.ts";
+import { selectedCharacterColor } from "./characters.ts";
 import { submitRun } from "../net/api.ts";
 
 export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
@@ -46,7 +46,7 @@ export class Game {
     this.cap = this.mode === "daily" ? MATCH_SECONDS : 0;
     this.sim = new RunSim(opts.seed ?? this.newSeed(), { cap: this.cap });
     this.prev = this.snapshot();
-    this.renderer = new Renderer(canvas, selectedSkin().color);
+    this.renderer = new Renderer(canvas, selectedCharacterColor());
     this.hud = new HUD(hudEl, overlayEl);
     this.audio.resume(); // we're inside the run-button gesture → allowed to start audio
 

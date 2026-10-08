@@ -1,32 +1,44 @@
 /**
  * Menu / landing experience. A live 3D attract scene runs behind a hero; the player
- * reads PLAY first, then (optionally) How It Works, Leaderboard, Runner. Blockchain
- * supports the experience, it doesn't dominate the front page. All copy is plain —
- * a non-crypto player should understand it in under a minute.
+ * reads PLAY first, then (optionally) How It Works, Leaderboard, Runner, and connect
+ * a wallet. Blockchain supports the experience; it doesn't dominate the front page.
+ * All copy is plain. The wallet here is a clearly-labelled DEMO provider — honest,
+ * not a faked testnet connection (docs/arch-capabilities.md: real Arch wallet pending).
  */
 import { Game } from "../game/game.ts";
 import { Attract } from "./attract.ts";
 import { dailyNumber, dailyBest, loadHistory } from "../game/daily.ts";
-import { SKINS, selectedSkin, selectSkin, isUnlocked } from "../game/cosmetics.ts";
 import { bestEver } from "../game/cosmetics.ts";
+import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColor, characterSwatch } from "../game/characters.ts";
+import { MockWalletProvider } from "../wallet/mock.ts";
+import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
+import type { WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
 export class Menu {
   private attract = new Attract();
   private game: Game | null = null;
+  private wallet = new MockWalletProvider();
+  private session: WalletSession | null = null;
+  private profile: PlayerProfile | null = null;
 
   constructor(private canvas: HTMLCanvasElement, private hud: HTMLElement, private overlay: HTMLElement) {}
+
+  private shortAddr(a: string): string { return `${a.slice(0, 6)}…${a.slice(-4)}`; }
 
   open(): void {
     this.attract.start();
     const n = dailyNumber();
     const best = bestEver();
     const dBest = dailyBest();
+    const walletRow = this.session && this.profile
+      ? `<button id="wallet" class="walletchip connected">👤 ${this.profile.displayName} · ${this.shortAddr(this.session.address)} <span class="net">ARCH TESTNET · DEMO</span></button>`
+      : `<button id="wallet" class="walletchip">CONNECT WALLET <span class="net">DEMO</span></button>`;
     this.overlay.className = "show home";
     this.overlay.innerHTML = `
       <div class="hero">
         <div class="title"><span class="accent">ARCH</span> RUNNER</div>
-        <div class="tagline">RUN THE BLOCK · MASTER THE FLOW</div>
+        <div class="tagline">RUN THE BLOCK · BREAK THE SCORE</div>
         <div class="playbtns">
           <button id="daily" class="btn">PLAY DAILY BLOCK #${n}</button>
           <button id="free" class="btn ghost">FREE RUN</button>
@@ -39,7 +51,9 @@ export class Menu {
           <button id="howto" class="navbtn">HOW IT WORKS</button>
           <button id="board" class="navbtn">LEADERBOARD</button>
           <button id="runner" class="navbtn">RUNNER</button>
+          ${this.profile ? `<button id="profile" class="navbtn">PROFILE</button>` : ""}
         </div>
+        ${walletRow}
         <div class="footnote">Skill-based. Free to play. Competitions settle on <b>Arch</b> (Bitcoin-native).</div>
       </div>`;
     this.bind("#daily", () => this.start("daily"));
@@ -47,11 +61,53 @@ export class Menu {
     this.bind("#howto", () => this.showHowTo());
     this.bind("#board", () => this.showLeaderboard());
     this.bind("#runner", () => this.showRunner());
+    this.bind("#profile", () => this.showProfile());
+    this.bind("#wallet", () => (this.session ? this.disconnect() : this.connect()));
   }
 
   private bind(sel: string, fn: () => void): void {
     const el = this.overlay.querySelector(sel) as HTMLButtonElement | null;
     if (el) el.onclick = fn;
+  }
+
+  // --- wallet (DEMO provider; explicit states; reconnect restores the profile) ---
+  private async connect(): Promise<void> {
+    this.overlay.className = "show";
+    this.overlay.innerHTML = `<div class="card modal"><div class="eyebrow">CONNECTING…</div><div class="lbnote">Approve the connection in your wallet. (DEMO wallet — no real signature.)</div></div>`;
+    try {
+      const session = await this.wallet.connect();
+      this.session = session;
+      const existing = getProfile(session.address);
+      if (existing) { this.profile = existing; selectCharacter(existing.characterId); this.attract.setColor(selectedCharacterColor()); this.open(); }
+      else this.askName(session);
+    } catch {
+      this.modal("WALLET", `<div class="lbnote">Connection cancelled or no wallet found. Install a supported Bitcoin wallet (Xverse, UniSat, Leather, OKX) for the live version.</div>`);
+    }
+  }
+
+  private askName(session: WalletSession): void {
+    this.overlay.className = "show";
+    this.overlay.innerHTML = `
+      <div class="card modal">
+        <div class="eyebrow">WELCOME TO ARCH RUNNER</div>
+        <div class="lbnote" style="margin:0 0 12px">${this.shortAddr(session.address)} · ARCH TESTNET · DEMO<br>What should we call you?</div>
+        <input id="name" class="nameinput" maxlength="20" placeholder="RUNNER NAME" autocomplete="off" />
+        <button id="enter" class="btn">ENTER THE CITY</button>
+      </div>`;
+    const input = this.overlay.querySelector("#name") as HTMLInputElement;
+    input.focus();
+    const submit = () => {
+      this.profile = createProfile(session.address, input.value || "RUNNER", selectedCharacterId());
+      this.open();
+    };
+    this.bind("#enter", submit);
+    input.onkeydown = (e) => { if (e.key === "Enter") submit(); };
+  }
+
+  private async disconnect(): Promise<void> {
+    await this.wallet.disconnect();
+    this.session = null; this.profile = null;
+    this.open();
   }
 
   private start(mode: Mode): void {
@@ -95,17 +151,40 @@ export class Menu {
   }
 
   private showRunner(): void {
-    const body = `<div class="skins big">${SKINS.map((s) => {
-      const unlocked = isUnlocked(s), active = selectedSkin().id === s.id;
-      const sw = `#${s.color.toString(16).padStart(6, "0")}`;
-      return `<button class="skin${active ? " active" : ""}${unlocked ? "" : " locked"}" data-skin="${s.id}" ${unlocked ? "" : "disabled"}>
-        <span class="dot" style="background:${sw}"></span>
-        <span class="sn">${unlocked ? s.name : `🔒 ${s.unlockScore.toLocaleString()}`}</span></button>`;
-    }).join("")}</div><div class="lbnote">Runners are cosmetic only — they never change your score.</div>`;
+    const body = `<div class="charsel">${CHARACTERS.map((ch) => {
+      const active = selectedCharacterId() === ch.id;
+      const sw = `#${characterSwatch(ch.id).toString(16).padStart(6, "0")}`;
+      return `<button class="charcard${active ? " active" : ""}" data-char="${ch.id}">
+        <span class="chdot" style="background:${sw};box-shadow:0 0 16px ${sw}"></span>
+        <span class="chname">${ch.name}</span>
+        ${active ? `<span class="chsel">SELECTED</span>` : ""}
+      </button>`;
+    }).join("")}</div><div class="lbnote">Runners are cosmetic only — identical speed, jump, hitbox and scoring. The live preview behind this panel shows your pick.</div>`;
     this.modal("CHOOSE YOUR RUNNER", body);
-    this.overlay.querySelectorAll<HTMLButtonElement>(".skin").forEach((b) => {
-      b.onclick = () => { selectSkin(b.dataset.skin!); this.showRunner(); };
+    this.overlay.querySelectorAll<HTMLButtonElement>(".charcard").forEach((b) => {
+      b.onclick = () => {
+        selectCharacter(b.dataset.char!);
+        this.attract.setColor(selectedCharacterColor());
+        if (this.session && this.profile) { this.profile.characterId = selectedCharacterId(); saveProfile(this.profile); }
+        this.showRunner();
+      };
     });
+  }
+
+  private showProfile(): void {
+    const p = this.profile;
+    if (!p) return this.open();
+    const best = bestEver();
+    const runs = loadHistory().length;
+    const charName = CHARACTERS.find((c) => c.id === p.characterId)?.name ?? "—";
+    this.modal("PLAYER PROFILE", `
+      <div class="profgrid">
+        <div><span class="pv">${p.displayName}</span><span class="pl">NAME</span></div>
+        <div><span class="pv">${best.toLocaleString()}</span><span class="pl">BEST SCORE</span></div>
+        <div><span class="pv">${runs}</span><span class="pl">RUNS</span></div>
+        <div><span class="pv">${charName}</span><span class="pl">RUNNER</span></div>
+      </div>
+      <div class="lbnote">${this.shortAddr(p.walletAddress)} · ARCH TESTNET · DEMO. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);
   }
 
   private modal(title: string, bodyHtml: string): void {
