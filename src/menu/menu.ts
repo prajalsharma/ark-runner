@@ -15,6 +15,7 @@ import { MockWalletProvider } from "../wallet/mock.ts";
 import { detectWallets, InjectedWalletProvider, WALLET_LABEL } from "../wallet/arch.ts";
 import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
 import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts";
+import { soundOn, setSound, reducedMotion, setReducedMotion, quality, setQuality } from "../game/settings.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
@@ -69,6 +70,7 @@ export class Menu {
           <button id="board" class="navbtn">LEADERBOARD</button>
           <button id="runner" class="navbtn">RUNNER</button>
           <button id="story" class="navbtn">STORY</button>
+          <button id="settings" class="navbtn">SETTINGS</button>
           ${this.profile ? `<button id="profile" class="navbtn">PROFILE</button>` : ""}
         </div>
         ${walletRow}
@@ -80,6 +82,7 @@ export class Menu {
     this.bind("#board", () => this.showLeaderboard());
     this.bind("#runner", () => this.showRunner());
     this.bind("#story", () => this.playIntro());
+    this.bind("#settings", () => this.showSettings());
     this.bind("#profile", () => this.showProfile());
     this.bind("#wallet", () => (this.session ? this.disconnect() : this.connect()));
   }
@@ -232,6 +235,25 @@ export class Menu {
         <div><span class="pv">${charName}</span><span class="pl">RUNNER</span></div>
       </div>
       <div class="lbnote">${this.shortAddr(p.walletAddress)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);
+  }
+
+  private showSettings(): void {
+    const row = (label: string, state: string, id: string): string =>
+      `<div class="setrow"><span>${label}</span><button class="settoggle" data-set="${id}">${state}</button></div>`;
+    this.modal("SETTINGS", `
+      ${row("SOUND", soundOn() ? "ON" : "OFF", "sound")}
+      ${row("REDUCED MOTION", reducedMotion() ? "ON" : "OFF", "motion")}
+      ${row("GRAPHICS", quality() === "high" ? "HIGH" : "LOW", "quality")}
+      <div class="lbnote">Motion & graphics apply on your next run. (In-run: M mutes, Esc pauses, F3 debug.)</div>`);
+    this.overlay.querySelectorAll<HTMLButtonElement>(".settoggle").forEach((b) => {
+      b.onclick = () => {
+        const id = b.dataset.set;
+        if (id === "sound") setSound(!soundOn());
+        else if (id === "motion") setReducedMotion(!reducedMotion());
+        else if (id === "quality") setQuality(quality() === "high" ? "low" : "high");
+        this.showSettings();
+      };
+    });
   }
 
   private modal(title: string, bodyHtml: string): void {

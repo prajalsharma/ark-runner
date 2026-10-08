@@ -300,3 +300,8 @@ body {
 .profgrid > div { display: flex; flex-direction: column; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.04); }
 .profgrid .pv { font-size: 18px; font-weight: 800; color: #ffd54a; }
 .profgrid .pl { font-size: 9px; letter-spacing: 2px; color: #8a90a6; margin-top: 3px; }
+
+/* Settings */
+.setrow { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); margin-bottom: 8px; font-size: 13px; letter-spacing: 1px; color: #e9ecf5; }
+.settoggle { font: inherit; font-size: 12px; font-weight: 800; letter-spacing: 1px; cursor: pointer; min-width: 64px; padding: 8px 14px; border-radius: 8px; color: #07080c; background: linear-gradient(180deg,#ffb24d,#ff7a1a); border: none; }
+.settoggle:active { transform: translateY(1px); }

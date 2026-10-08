@@ -15,10 +15,10 @@ export class CityScape {
   private gates: THREE.Mesh[] = [];
   private readonly span: number;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, count = 18) {
     const plain = new THREE.MeshStandardMaterial({ color: COL.building, roughness: 0.9, metalness: 0.15 });
     const lit = new THREE.MeshStandardMaterial({ color: COL.windowLit, emissive: COL.windowGlow, emissiveIntensity: 0.22, roughness: 0.6 });
-    const count = 18, spacing = 11;
+    const spacing = 11;
     this.span = count * spacing;
     const rows = [7.6, 16];
     for (const side of [-1, 1]) {

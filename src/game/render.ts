@@ -8,6 +8,7 @@ import * as THREE from "three";
 import type { RunSim } from "./sim.ts";
 import { RunnerRig } from "./runner-rig.ts";
 import { CityScape } from "./cityscape.ts";
+import { reducedMotion, quality } from "./settings.ts";
 import { LANE_WIDTH, OBSTACLE_H, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
 const COL = {
@@ -39,7 +40,8 @@ export class Renderer {
   private shake = 0;         // decays every frame
   private blockLevel = 0;    // eased 0→1 Block Run intensity (smooth transitions)
   private flipLevel = 0;     // eased 0→1 ARCH FLIP intensity
-  private readonly reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  private readonly reduced = reducedMotion();
+  private readonly lowQ = quality() === "low";
   private readonly cBg = new THREE.Color(COL.bg);
   private readonly cBgBlock = new THREE.Color(COL.bgBlock);
   private readonly cPlayer: THREE.Color;
@@ -111,14 +113,15 @@ export class Renderer {
 
     // Particle pool (collect sparkles / death burst). Render-only.
     const pGeo = new THREE.BoxGeometry(0.13, 0.13, 0.13);
-    for (let i = 0; i < 48; i++) {
+    const pcount = this.lowQ ? 16 : 48;
+    for (let i = 0; i < pcount; i++) {
       const m = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 1 }));
       m.visible = false; this.scene.add(m);
       this.parts.push({ m, vx: 0, vy: 0, vz: 0, life: 0, max: 1 });
     }
 
-    // The city around the corridor (depth + atmosphere).
-    this.city = new CityScape(this.scene);
+    // The city around the corridor (depth + atmosphere). Fewer towers on low quality.
+    this.city = new CityScape(this.scene, this.lowQ ? 9 : 18);
 
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
@@ -249,7 +252,7 @@ export class Renderer {
     }
 
     // Speed streaks (Block Run only): deterministic lateral lanes scrolling fast.
-    const streaksOn = this.blockLevel > 0.15 && !this.reduced;
+    const streaksOn = this.blockLevel > 0.15 && !this.reduced && !this.lowQ;
     const sspan = 90;
     for (let i = 0; i < this.streaks.length; i++) {
       const m = this.streaks[i]!;
