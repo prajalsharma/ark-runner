@@ -91,6 +91,13 @@ test("a centered no-input runner never earns near-miss Flow from side lanes (wro
   }
 });
 
+test("death records a cause for the recap", () => {
+  const s = new RunSim(777); // no input → dies on a hazard
+  for (let i = 0; i < 2000 && s.alive; i++) s.step();
+  assert.equal(s.alive, false);
+  assert.match(s.deathCause, /WALL|LOW|HIGH|PIT/, "death should explain what the player hit");
+});
+
 test("different seeds produce different worlds (fair-but-varied)", () => {
   const sig = (seed: number) => {
     const g = new SegmentGenerator(seed);

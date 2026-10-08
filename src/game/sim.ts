@@ -52,6 +52,7 @@ export class RunSim {
   private flipArmedSeg = -1;
 
   lastFlowSource: FlowSource = ""; // for the debug overlay
+  deathCause = "";   // why the run ended (for the recap). "" = survived to the cap.
   private bufferedJumpTick = -1000; // jump pressed while airborne, fired on landing
 
   readonly seed: number;
@@ -169,7 +170,14 @@ export class RunSim {
             o.type === "LOW" ? this.y < JUMP_CLEAR_Y :
             o.type === "HIGH" ? !this.sliding :
             /* PIT */ this.y < 0.25;
-          if (hit) { this.end(false); return; }
+          if (hit) {
+            this.deathCause =
+              o.type === "WALL" ? "YOU HIT A WALL — switch lanes sooner" :
+              o.type === "LOW" ? "CAUGHT THE LOW BAR — jump it" :
+              o.type === "HIGH" ? "CLIPPED THE HIGH BAR — slide under it" :
+              "FELL IN A PIT — jump the gap";
+            this.end(false); return;
+          }
           // Perfect Dodge: beat the hazard with the tightest margin.
           const perfect =
             o.type === "LOW" ? this.y < JUMP_CLEAR_Y + PERFECT_LOW_WINDOW :

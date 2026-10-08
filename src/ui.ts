@@ -126,11 +126,20 @@ export class HUD {
     const bestLine = meta.mode === "daily"
       ? `TODAY'S BEST ${Math.max(meta.dailyBest ?? 0, score).toLocaleString()}`
       : `BEST ${best.toLocaleString()}`;
+    // Why the run ended + a "one more run" hook.
+    const deathLine = sim.deathCause ? `<div class="death">${sim.deathCause}</div>` : "";
+    const motiv = isBest
+      ? `<div class="motiv best">🏆 NEW PERSONAL BEST!</div>`
+      : prevBest - score > 0
+        ? `<div class="motiv">${(prevBest - score).toLocaleString()} to beat your best — one more run?</div>`
+        : "";
     this.overlay.innerHTML = `
       <div class="card">
         <div class="eyebrow">${eyebrow}</div>
+        ${deathLine}
         <div class="big">${score.toLocaleString()}</div>
         <div class="sub">SURVIVED ${secs}s · ${(sim.distance / 100).toFixed(2)} KM</div>
+        ${motiv}
         <div class="stats-grid">
           <div><span class="n">🪙 ${sim.collected}</span><span class="l">COINS</span></div>
           <div><span class="n">${sim.perfects}</span><span class="l">PERFECT</span></div>
