@@ -35,6 +35,8 @@ export class Game {
   private onMenu?: () => void;
   private ended = false;
   private recorded = false;
+  private resultShown = false;
+  private deathAt = 0;
   private paused = false;
   private debug = false;
   private prev: Snapshot;
@@ -102,8 +104,15 @@ export class Game {
     if (this.debug) this.hud.setDebug(this.sim.debugLine());
     this.maybeAuditor();
 
+    // On death: play the cinematic death camera, then show the recap a beat later.
     if (this.sim.phase === "ended" && !this.ended) {
       this.ended = true;
+      this.deathAt = now;
+      this.renderer.startDeathCam();
+      this.audio.stopMusic();
+    }
+    if (this.ended && !this.resultShown && now - this.deathAt >= 1200) {
+      this.resultShown = true;
       this.finishRun();
     }
     this.raf = requestAnimationFrame(this.loop);
@@ -228,7 +237,10 @@ export class Game {
     this.prev = this.snapshot();
     this.ended = false;
     this.recorded = false;
+    this.resultShown = false;
     this.paused = false;
+    this.renderer.stopDeathCam();
+    this.audio.startMusic();
     this.auditorAt = 260;
     this.auditorN = 0;
     this.hud.hideResult();

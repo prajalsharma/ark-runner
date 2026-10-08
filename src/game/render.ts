@@ -33,6 +33,7 @@ export class Renderer {
   private lastPlayerX = 0;
   private lastPlayerY = 0.8;
   private lastNow = 0;
+  private deathT = -1; // >=0 while the death camera plays
   private fog: THREE.Fog;
   private canvas: HTMLCanvasElement;
 
@@ -153,6 +154,10 @@ export class Renderer {
     this.cam.updateProjectionMatrix();
   }
 
+  /** Cinematic death camera: pulls up/back and orbits the fallen runner. */
+  startDeathCam(): void { this.deathT = 0; }
+  stopDeathCam(): void { this.deathT = -1; }
+
   /** Recolour the runner live (character selection preview). */
   setPlayerColor(hex: number): void {
     this.cPlayer.set(hex);
@@ -239,6 +244,14 @@ export class Renderer {
     this.cam.position.set(this.camX + sx, 5.4 + sy, 9);
     this.cam.lookAt(sim.laneX * 0.2, 1.4, -10);
     this.shake *= 0.86;
+
+    // Death camera overrides: ease up/back and orbit the fallen runner.
+    if (this.deathT >= 0) {
+      this.deathT = Math.min(1, this.deathT + dt * 0.9);
+      const e = this.deathT;
+      this.cam.position.set(this.camX * 0.4 + Math.sin(e * 3) * 0.7, 5.4 + e * 5, 9 + e * 9);
+      this.cam.lookAt(this.lastPlayerX, Math.max(0.4, this.lastPlayerY), 0);
+    }
 
     // City scrolls past (recycled).
     this.city.update(d);
