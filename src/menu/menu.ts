@@ -16,6 +16,8 @@ import { detectWallets, InjectedWalletProvider, WALLET_LABEL } from "../wallet/a
 import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
 import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts";
 import { soundOn, setSound, reducedMotion, setReducedMotion, quality, setQuality } from "../game/settings.ts";
+import { simulate } from "../economy/simulator.ts";
+import { STRUCTURE_A, splitExact } from "../economy/distribution.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
@@ -70,6 +72,7 @@ export class Menu {
           <button id="board" class="navbtn">LEADERBOARD</button>
           <button id="runner" class="navbtn">RUNNER</button>
           <button id="story" class="navbtn">STORY</button>
+          <button id="economy" class="navbtn">ECONOMY</button>
           <button id="settings" class="navbtn">SETTINGS</button>
           ${this.profile ? `<button id="profile" class="navbtn">PROFILE</button>` : ""}
         </div>
@@ -82,6 +85,7 @@ export class Menu {
     this.bind("#board", () => this.showLeaderboard());
     this.bind("#runner", () => this.showRunner());
     this.bind("#story", () => this.playIntro());
+    this.bind("#economy", () => this.showEconomy());
     this.bind("#settings", () => this.showSettings());
     this.bind("#profile", () => this.showProfile());
     this.bind("#wallet", () => (this.session ? this.disconnect() : this.connect()));
@@ -235,6 +239,23 @@ export class Menu {
         <div><span class="pv">${charName}</span><span class="pl">RUNNER</span></div>
       </div>
       <div class="lbnote">${this.shortAddr(p.walletAddress)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);
+  }
+
+  private showEconomy(): void {
+    const r = simulate({ players: 100, entryAmount: 2000n, feeRateBps: 500, structureBps: STRUCTURE_A, participation: 0.6, maxEntriesPerPlayer: 3, whaleFraction: 0.02, seed: dailyNumber() });
+    const top = splitExact(r.prizeReserve, STRUCTURE_A);
+    const n = (b: bigint): string => Number(b).toLocaleString();
+    this.modal("ECONOMY · SIMULATION", `
+      <div class="lbnote" style="margin:0 0 10px"><b>DEMO · no real funds.</b> A sample Daily Block: 100 players, 2,000-sat entry, 5% fee, 70/20/10 prizes. <b>Entry-funded</b> — prizes come only from entries, never more than the pool (solvency enforced). No yield, no fake balances.</div>
+      <div class="profgrid">
+        <div><span class="pv">${r.totalEntries}</span><span class="pl">ENTRIES</span></div>
+        <div><span class="pv">${n(r.totalDeposits)}</span><span class="pl">POOL · sats</span></div>
+        <div><span class="pv">${n(r.prizeReserve)}</span><span class="pl">PRIZES · sats</span></div>
+        <div><span class="pv">${n(r.protocolRevenue)}</span><span class="pl">FEE · sats</span></div>
+        <div><span class="pv">${n(top[0]!)}</span><span class="pl">1ST PLACE</span></div>
+        <div><span class="pv">${r.capitalEfficiencyPct}%</span><span class="pl">TO PLAYERS</span></div>
+      </div>
+      <div class="lbnote">Entry tiers (FREE / BRONZE / SILVER / GOLD) are configurable. <b>No pay-to-win</b> — money picks your tier, skill picks your rank. Real entries/prizes settle on Arch once the competition program is deployed to testnet.</div>`);
   }
 
   private showSettings(): void {
