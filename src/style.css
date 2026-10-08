@@ -54,7 +54,35 @@ body {
   border: none; border-radius: 10px;
 }
 .btn:active { transform: translateY(1px); }
+.btn.ghost {
+  background: transparent; color: #ffb24d;
+  border: 1px solid rgba(255, 122, 26, 0.5); margin-top: 10px;
+}
+.row { display: flex; gap: 8px; }
+.row .btn { margin-top: 10px; }
 .hint { margin-top: 14px; font-size: 10px; letter-spacing: 1px; color: #6b7187; }
+
+.card { max-height: 92vh; overflow-y: auto; }
+
+/* Skins picker */
+.skins { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 16px; }
+.skin {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 6px 10px; font: inherit; font-size: 10px; letter-spacing: 1px;
+  color: #cfd3e0; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+}
+.skin .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.skin.active { border-color: #ff7a1a; box-shadow: 0 0 12px rgba(255,122,26,0.4); }
+.skin.locked { opacity: 0.5; cursor: not-allowed; }
+
+/* Recent runs */
+.recent { margin-top: 16px; display: flex; flex-direction: column; gap: 4px; }
+.run {
+  display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 1px;
+  padding: 5px 10px; border-radius: 6px; background: rgba(255,255,255,0.03); color: #aab0c4;
+}
+.run span:last-child { color: #ffd54a; font-weight: 700; }
 
 .stat.block { border-color: #b86bff; box-shadow: 0 0 18px rgba(184, 107, 255, 0.5); animation: pulse2 0.5s infinite alternate; }
 .stat.block .k { color: #d7b6ff; }

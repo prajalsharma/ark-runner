@@ -35,13 +35,16 @@ export class Renderer {
   private readonly reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   private readonly cBg = new THREE.Color(COL.bg);
   private readonly cBgBlock = new THREE.Color(COL.bgBlock);
-  private readonly cPlayer = new THREE.Color(COL.player);
+  private readonly cPlayer: THREE.Color;
   private readonly cPlayerBlock = new THREE.Color(COL.playerBlock);
   private readonly cPlayerFlip = new THREE.Color(COL.playerFlip);
   private readonly cTmp = new THREE.Color();
+  private readonly playerColor: number;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, playerColor: number = COL.player) {
     this.canvas = canvas;
+    this.playerColor = playerColor;
+    this.cPlayer = new THREE.Color(playerColor);
     this.scene.background = new THREE.Color(COL.bg);
     this.fog = new THREE.Fog(COL.bg, 24, 62);
     this.scene.fog = this.fog;
@@ -102,7 +105,7 @@ export class Renderer {
     // Player.
     this.player = new THREE.Mesh(
       new THREE.BoxGeometry(1.1, 1.6, 1.0),
-      new THREE.MeshStandardMaterial({ color: COL.player, emissive: 0x7a2a00, emissiveIntensity: 0.6, roughness: 0.4 }),
+      new THREE.MeshStandardMaterial({ color: this.playerColor, emissive: 0x7a2a00, emissiveIntensity: 0.6, roughness: 0.4 }),
     );
     this.player.position.set(0, 0.8, 0);
     this.scene.add(this.player);

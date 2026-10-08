@@ -2,6 +2,16 @@
  *  canvas owns the frame budget. The toast lives outside #hud so the per-frame
  *  HUD rewrite never clobbers it. */
 import type { RunSim } from "./game/sim.ts";
+import type { Mode } from "./game/daily.ts";
+
+export type ResultMeta = {
+  mode: Mode;
+  dailyNo?: number;
+  dailyBest?: number;
+  onRetry: () => void;
+  onShare: () => void;
+  onMenu?: () => void;
+};
 
 const bestKey = "archrunner.best.v1";
 const readBest = (): number => { try { return Number(localStorage.getItem(bestKey) || 0); } catch { return 0; } };
@@ -58,17 +68,24 @@ export class HUD {
     this.overlay.innerHTML = "";
   }
 
-  showResult(sim: RunSim, onRetry: () => void): void {
+  showResult(sim: RunSim, meta: ResultMeta): void {
     if (this.shownResult) return;
     this.shownResult = true;
     const score = Math.floor(sim.score);
-    const best = Math.max(readBest(), score);
+    const prevBest = readBest();
+    const best = Math.max(prevBest, score);
     writeBest(best);
     const secs = sim.elapsed.toFixed(1);
-    const isBest = score >= best && score > 0;
+    const isBest = score > prevBest && score > 0;
+    const eyebrow = isBest ? "NEW BEST"
+      : meta.mode === "daily" ? `DAILY BLOCK #${meta.dailyNo ?? ""}`
+      : "RUN COMPLETE";
+    const bestLine = meta.mode === "daily"
+      ? `TODAY'S BEST ${Math.max(meta.dailyBest ?? 0, score).toLocaleString()}`
+      : `BEST ${best.toLocaleString()}`;
     this.overlay.innerHTML = `
       <div class="card">
-        <div class="eyebrow">${isBest ? "NEW BEST" : "RUN COMPLETE"}</div>
+        <div class="eyebrow">${eyebrow}</div>
         <div class="big">${score.toLocaleString()}</div>
         <div class="sub">SURVIVED ${secs}s · ${(sim.distance / 100).toFixed(2)} KM</div>
         <div class="stats-grid">
@@ -79,12 +96,19 @@ export class HUD {
           <div><span class="n">${sim.flips}</span><span class="l">ARCH FLIP</span></div>
           <div><span class="n">×${sim.maxFlowMult.toFixed(1)}</span><span class="l">MAX FLOW</span></div>
         </div>
-        <div class="best">BEST ${best.toLocaleString()}</div>
+        <div class="best">${bestLine}</div>
         <button id="retry" class="btn">RUN IT AGAIN</button>
+        <div class="row">
+          <button id="share" class="btn ghost">SHARE</button>
+          ${meta.onMenu ? `<button id="menu" class="btn ghost">MENU</button>` : ""}
+        </div>
         <div class="hint">← → MOVE · ↑/SPACE JUMP · ↓ SLIDE · (SWIPE ON MOBILE)</div>
       </div>`;
     this.overlay.classList.add("show");
-    (this.overlay.querySelector("#retry") as HTMLButtonElement).onclick = () => { onRetry(); };
+    (this.overlay.querySelector("#retry") as HTMLButtonElement).onclick = () => meta.onRetry();
+    (this.overlay.querySelector("#share") as HTMLButtonElement).onclick = () => meta.onShare();
+    const menuBtn = this.overlay.querySelector("#menu") as HTMLButtonElement | null;
+    if (menuBtn && meta.onMenu) menuBtn.onclick = () => meta.onMenu!();
   }
 
   hideResult(): void {

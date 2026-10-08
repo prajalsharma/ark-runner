@@ -1,22 +1,25 @@
 /** Orchestrator: fixed-step sim + interpolated render + HUD + feel (audio/juice).
- *  Deterministic core, smooth presentation. Free play uses a fresh seed per run;
- *  daily/competition mode (Phase 4) will pass a fixed seed so everyone gets the
- *  same world. Gameplay events are detected by diffing sim counters here, so the
- *  sim itself stays pure (no callbacks, replay-safe). */
-import { DT } from "./constants.ts";
+ *  Deterministic core, smooth presentation. Free Run uses a fresh seed; Daily Block
+ *  uses the shared daily seed (same world for everyone, bounded by MATCH_SECONDS) so
+ *  scores are comparable. Gameplay events are detected by diffing sim counters here,
+ *  so the sim itself stays pure (no callbacks, replay-safe). */
+import { DT, MATCH_SECONDS } from "./constants.ts";
 import { RunSim } from "./sim.ts";
 import { Renderer } from "./render.ts";
-import { HUD } from "../ui.ts";
+import { HUD, type ResultMeta } from "../ui.ts";
 import { AudioManager } from "../engine/audio.ts";
 import { attachInput } from "../engine/input.ts";
+import { type Mode, dailySeed, dateKeyUTC, dailyNumber, recordRun, dailyBest } from "./daily.ts";
+import { selectedSkin } from "./cosmetics.ts";
 
-export type GameOpts = { seed?: number; cap?: number; onEnd?: (sim: RunSim) => void };
+export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
 
 type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; alive: boolean };
 
 export class Game {
   sim: RunSim;
   readonly audio = new AudioManager();
+  readonly mode: Mode;
   private renderer: Renderer;
   private hud: HUD;
   private detach: () => void;
@@ -27,16 +30,21 @@ export class Game {
   private raf = 0;
   private cap: number;
   private onEnd?: (sim: RunSim) => void;
+  private onMenu?: () => void;
   private ended = false;
+  private recorded = false;
   private paused = false;
   private prev: Snapshot;
+  private dateKey = dateKeyUTC();
 
   constructor(canvas: HTMLCanvasElement, hudEl: HTMLElement, overlayEl: HTMLElement, opts: GameOpts = {}) {
-    this.cap = opts.cap ?? 0;
+    this.mode = opts.mode ?? "free";
     this.onEnd = opts.onEnd;
-    this.sim = new RunSim(opts.seed ?? this.freshSeed(), { cap: this.cap });
+    this.onMenu = opts.onMenu;
+    this.cap = this.mode === "daily" ? MATCH_SECONDS : 0;
+    this.sim = new RunSim(opts.seed ?? this.newSeed(), { cap: this.cap });
     this.prev = this.snapshot();
-    this.renderer = new Renderer(canvas);
+    this.renderer = new Renderer(canvas, selectedSkin().color);
     this.hud = new HUD(hudEl, overlayEl);
     this.audio.resume(); // we're inside the run-button gesture → allowed to start audio
 
@@ -54,12 +62,15 @@ export class Game {
     this.raf = requestAnimationFrame(this.loop);
   }
 
+  /** Daily Block replays the same shared seed all day; Free Run is fresh each time. */
+  private newSeed(): number {
+    return this.mode === "daily" ? dailySeed(this.dateKey) : (((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0) || 1);
+  }
+
   private snapshot(): Snapshot {
     const s = this.sim;
     return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, alive: s.alive };
   }
-
-  private freshSeed(): number { return ((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0) || 1; }
 
   private loop(now: number): void {
     if (!this.lastT) this.lastT = now;
@@ -77,13 +88,38 @@ export class Game {
 
     if (this.sim.phase === "ended" && !this.ended) {
       this.ended = true;
-      this.onEnd?.(this.sim);
-      this.hud.showResult(this.sim, () => this.restart());
+      this.finishRun();
     }
     this.raf = requestAnimationFrame(this.loop);
   }
 
-  /** Turn sim-counter deltas into feedback (sound + shake + toast). Keeps sim pure. */
+  private finishRun(): void {
+    const s = this.sim;
+    if (!this.recorded) {
+      this.recorded = true;
+      recordRun({ score: Math.floor(s.score), mode: this.mode, dateKey: this.dateKey, ts: Date.now(), dist: s.distance, flips: s.flips, blockRuns: s.blockRuns });
+    }
+    this.onEnd?.(s);
+    const meta: ResultMeta = {
+      mode: this.mode,
+      dailyNo: this.mode === "daily" ? dailyNumber(this.dateKey) : undefined,
+      dailyBest: this.mode === "daily" ? dailyBest(this.dateKey) : undefined,
+      onRetry: () => this.restart(),
+      onShare: () => this.share(),
+      onMenu: this.onMenu ? () => { this.onMenu?.(); } : undefined,
+    };
+    this.hud.showResult(s, meta);
+  }
+
+  private share(): void {
+    const s = this.sim;
+    const head = this.mode === "daily" ? `ARCH RUNNER · DAILY BLOCK #${dailyNumber(this.dateKey)}` : "ARCH RUNNER · FREE RUN";
+    const text = `${head}\nSCORE ${Math.floor(s.score).toLocaleString()}\n${(s.distance / 100).toFixed(2)} KM · FLOW ×${s.maxFlowMult.toFixed(1)} · ${s.blockRuns} BLOCK · ${s.flips} FLIP\nRun it: ${location.href}`;
+    const nav = navigator as Navigator & { share?: (d: { text: string }) => Promise<void> };
+    if (typeof nav.share === "function") { void nav.share({ text }).catch(() => undefined); }
+    else { void navigator.clipboard?.writeText(text).then(() => this.hud.toast("COPIED", "perfect")).catch(() => undefined); }
+  }
+
   private reactToEvents(): void {
     const s = this.sim, p = this.prev;
     if (s.collected > p.collected) this.audio.play("collect");
@@ -116,8 +152,8 @@ export class Game {
 
   private attachSysKeys(): () => void {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "p" || e.key === "P") { this.togglePause(); }
-      else if (e.key === "m" || e.key === "M") { this.audio.toggleMute(); }
+      if (e.key === "Escape" || e.key === "p" || e.key === "P") this.togglePause();
+      else if (e.key === "m" || e.key === "M") this.audio.toggleMute();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -130,10 +166,11 @@ export class Game {
     else { this.audio.resume(); this.hud.hidePause(); this.lastT = 0; this.acc = 0; }
   }
 
-  restart(seed?: number): void {
-    this.sim = new RunSim(seed ?? this.freshSeed(), { cap: this.cap });
+  restart(): void {
+    this.sim = new RunSim(this.newSeed(), { cap: this.cap });
     this.prev = this.snapshot();
     this.ended = false;
+    this.recorded = false;
     this.paused = false;
     this.hud.hideResult();
   }
@@ -143,5 +180,6 @@ export class Game {
     this.detach();
     this.detachKeys();
     this.sysbar.remove();
+    this.hud.hideResult();
   }
 }

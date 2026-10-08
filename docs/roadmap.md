@@ -27,9 +27,13 @@ HUD chip + toasts. Never coincides with a Block Run.
 Tutorial onboarding. Settings, colorblind-safe palette, adjustable sensitivity. A second environment theme.
 Particles. Perf budget on mid-tier mobile. (Picked up after the MVP/backend phases.)
 
-## Phase 3 — MVP game (no money yet)
-Daily Challenge on a shared **daily seed**, local leaderboards, cosmetics (non-pay-to-win), run history,
-share card. Ship as a genuinely good free game before any wallet appears.
+## Phase 3 — MVP game (no money yet) ✅ (shipped)
+**Daily Block** on a shared UTC-date seed (same world for everyone that day; bounded by MATCH_SECONDS so
+scores compare), with a **DAILY BLOCK #N** counter. **Free Run** mode. Local records: today's daily best +
+last-20 run history (localStorage, degrades cleanly). **Cosmetic skins** (earned by all-time best, never
+pay-to-win, never touch score) selectable on the title. **Share card** (native share / clipboard). Title
+screen with mode select + skins + recent runs; result card shows mode, daily #, today's best, SHARE + MENU.
+Tests: daily seed is a pure function of the date and gives everyone the same world.
 
 ## Phase 4 — Backend + anti-cheat
 `apps/api` (modular monolith): Auth, Player, Run, **Score (replay-validated)**, Competition state machine,
