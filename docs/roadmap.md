@@ -16,9 +16,16 @@ Procedural **audio** (WebAudio synth: event blips + speed-tracking engine hum, m
 all new counters reproduce exactly on replay; pattern-fairness still holds. Determinism preserved (sim stays pure;
 feedback is counter-diffed in the orchestrator).
 
-## Phase 2b — Remaining vertical-slice work
-**ARCH FLIP** (lane-choice risk/reward gateway, deterministic + replay-safe). Tutorial onboarding. Settings,
-colorblind-safe palette, adjustable sensitivity. A second environment theme. Particles. Perf budget on mid-tier mobile.
+## Phase 2b — ARCH FLIP ✅ (shipped)
+**ARCH FLIP**: the opt-in risk/reward gateway, deterministic + replay-safe. A glowing gate appears in one
+seed-chosen lane; entering that lane commits you to a short, harder stretch at **×3 score**, banking a
+flow-scaled bonus if you survive it (die and you lose it — that's the risk). The choice, not the world, is
+the only variable, so replays reproduce exactly (tested). Gold world tint + gate markers + riser/chime SFX +
+HUD chip + toasts. Never coincides with a Block Run.
+
+## Phase 2c — Remaining vertical-slice polish (deferred)
+Tutorial onboarding. Settings, colorblind-safe palette, adjustable sensitivity. A second environment theme.
+Particles. Perf budget on mid-tier mobile. (Picked up after the MVP/backend phases.)
 
 ## Phase 3 — MVP game (no money yet)
 Daily Challenge on a shared **daily seed**, local leaderboards, cosmetics (non-pay-to-win), run history,

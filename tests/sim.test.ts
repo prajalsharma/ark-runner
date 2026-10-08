@@ -6,8 +6,8 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { RunSim, type InputEvent } from "../src/game/sim.ts";
-import { SegmentGenerator } from "../src/game/patterns.ts";
-import { isBlockRunSegment, BLOCK_START_SEG } from "../src/game/constants.ts";
+import { SegmentGenerator, isFlipGateSegment, flipLaneFor } from "../src/game/patterns.ts";
+import { isBlockRunSegment, BLOCK_START_SEG, FLIP_START_SEG, LANES } from "../src/game/constants.ts";
 
 /** Re-run a recorded input stream against a fresh sim for the same tick count. */
 function replay(seed: number, inputs: InputEvent[], ticks: number): RunSim {
@@ -50,6 +50,24 @@ test("recorded inputs reproduce the same score on replay", () => {
   assert.equal(b.perfects, a.perfects, "perfects must reproduce");
   assert.equal(b.blockRuns, a.blockRuns, "block runs must reproduce");
   assert.equal(b.maxFlow, a.maxFlow, "max flow must reproduce");
+  assert.equal(b.flips, a.flips, "arch flips must reproduce");
+});
+
+test("ARCH FLIP gates + flip lane are deterministic and off the Block Run bands", () => {
+  // Gates start at FLIP_START_SEG and never coincide with a Block Run.
+  assert.equal(isFlipGateSegment(FLIP_START_SEG), true);
+  for (let i = 0; i < 400; i++) {
+    if (isFlipGateSegment(i)) assert.equal(isBlockRunSegment(i), false, `flip gate ${i} must not be a block run`);
+    assert.equal(isFlipGateSegment(i), isFlipGateSegment(i)); // pure
+  }
+  // Flip lane is a valid lane and stable for a given (seed, index).
+  for (const seed of [1, 2, 99, 40503]) {
+    for (let i = FLIP_START_SEG; i < 60; i++) {
+      const lane = flipLaneFor(seed, i);
+      assert.ok(LANES.includes(lane as -1 | 0 | 1), "flip lane must be a real lane");
+      assert.equal(lane, flipLaneFor(seed, i), "flip lane must be stable");
+    }
+  }
 });
 
 test("Block Run bands are deterministic and gated past the learning phase", () => {

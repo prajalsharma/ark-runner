@@ -4,7 +4,7 @@
  * inside a user gesture (autoplay policy); Game does this on the run button.
  * Audio is presentation only — it never touches the deterministic sim.
  */
-export type SfxEvent = "collect" | "nearmiss" | "perfect" | "blockstart" | "jump" | "slide" | "death";
+export type SfxEvent = "collect" | "nearmiss" | "perfect" | "blockstart" | "jump" | "slide" | "death" | "flip" | "flipbank";
 
 const MUTE_KEY = "archrunner.muted.v1";
 const readMuted = (): boolean => { try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; } };
@@ -77,6 +77,8 @@ export class AudioManager {
       case "jump": this.tone(520, 0.1, "sine", 0.18); break;
       case "slide": this.tone(230, 0.13, "sawtooth", 0.14); break;
       case "death": this.tone(200, 0.45, "sawtooth", 0.32); this.tone(85, 0.5, "square", 0.28); break;
+      case "flip": this.tone(440, 0.18, "square", 0.22); this.tone(660, 0.22, "square", 0.18); this.tone(880, 0.26, "square", 0.14); break;
+      case "flipbank": this.tone(784, 0.1, "triangle", 0.26); this.tone(1047, 0.12, "triangle", 0.22); this.tone(1568, 0.16, "triangle", 0.18); break;
     }
   }
 }

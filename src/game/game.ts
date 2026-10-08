@@ -12,7 +12,7 @@ import { attachInput } from "../engine/input.ts";
 
 export type GameOpts = { seed?: number; cap?: number; onEnd?: (sim: RunSim) => void };
 
-type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; alive: boolean };
+type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; alive: boolean };
 
 export class Game {
   sim: RunSim;
@@ -56,7 +56,7 @@ export class Game {
 
   private snapshot(): Snapshot {
     const s = this.sim;
-    return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, alive: s.alive };
+    return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, alive: s.alive };
   }
 
   private freshSeed(): number { return ((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0) || 1; }
@@ -90,6 +90,8 @@ export class Game {
     if (s.nearMisses > p.nearMisses) { this.audio.play("nearmiss"); this.renderer.addShake(0.12); }
     if (s.perfects > p.perfects) { this.audio.play("perfect"); this.renderer.addShake(0.06); this.hud.toast("PERFECT", "perfect"); }
     if (s.blockRuns > p.blockRuns) { this.audio.play("blockstart"); this.hud.toast("BLOCK RUN", "block"); }
+    if (s.flipActive && !p.flipActive) { this.audio.play("flip"); this.hud.toast("ARCH FLIP ×3", "flip"); }
+    if (s.flips > p.flips) { this.audio.play("flipbank"); this.hud.toast("FLIP BANKED", "flip"); this.renderer.addShake(0.1); }
     if (!s.alive && p.alive) { this.audio.play("death"); this.renderer.addShake(1.0); }
     this.prev = this.snapshot();
   }

@@ -22,11 +22,12 @@ export class HUD {
     if (sim.phase === "ended") return;
     const hyper = sim.hyperFlow ? " hyper" : "";
     const block = sim.blockRun ? `<div class="stat block"><span class="k">BLOCK RUN</span><span class="v">×2</span></div>` : "";
+    const flip = sim.flipActive ? `<div class="stat flip"><span class="k">ARCH FLIP</span><span class="v">×3</span></div>` : "";
     this.hud.innerHTML = `
       <div class="stat"><span class="k">SCORE</span><span class="v">${Math.floor(sim.score).toLocaleString()}</span></div>
       <div class="stat flow${hyper}"><span class="k">FLOW</span><span class="v">×${sim.flowMult.toFixed(1)}</span></div>
       <div class="stat"><span class="k">DIST</span><span class="v">${(sim.distance / 100).toFixed(2)} KM</span></div>
-      ${block}
+      ${block}${flip}
     `;
   }
 
@@ -75,6 +76,7 @@ export class HUD {
           <div><span class="n">${sim.perfects}</span><span class="l">PERFECT</span></div>
           <div><span class="n">${sim.nearMisses}</span><span class="l">NEAR MISS</span></div>
           <div><span class="n">${sim.blockRuns}</span><span class="l">BLOCK RUN</span></div>
+          <div><span class="n">${sim.flips}</span><span class="l">ARCH FLIP</span></div>
           <div><span class="n">×${sim.maxFlowMult.toFixed(1)}</span><span class="l">MAX FLOW</span></div>
         </div>
         <div class="best">BEST ${best.toLocaleString()}</div>

@@ -5,7 +5,22 @@
  * always has reaction time. tests/patterns.test.ts statistically verifies this.
  */
 import { SeededRandom } from "../engine/rng.ts";
-import { LANES, SEGMENT_LEN, isBlockRunSegment, type ObstacleType } from "./constants.ts";
+import {
+  LANES, SEGMENT_LEN, isBlockRunSegment,
+  FLIP_START_SEG, FLIP_PERIOD_SEGS, type ObstacleType,
+} from "./constants.ts";
+
+/** A flip gate lives here — deterministic, and never on a Block Run segment. */
+export function isFlipGateSegment(index: number): boolean {
+  if (index < FLIP_START_SEG || isBlockRunSegment(index)) return false;
+  return index % FLIP_PERIOD_SEGS === FLIP_START_SEG % FLIP_PERIOD_SEGS;
+}
+
+/** Which lane is the (dangerous, rewarding) flip lane for this gate. Seed-derived. */
+export function flipLaneFor(seed: number, index: number): number {
+  const r = new SeededRandom((seed >>> 0) ^ (index * 40503));
+  return r.pick(LANES);
+}
 
 export type Obstacle = { z: number; lane: number; type: ObstacleType; id: number };
 export type Energy = { z: number; lane: number; y: number; id: number };
@@ -96,6 +111,17 @@ PATTERNS.block_weave = (c) => {
 };
 const BLOCK = ["block_rush", "block_leap", "block_weave"];
 
+/** Flip gate: the flip lane holds a fat reward behind beatable hazards; the other
+ *  lanes are clearly safe so "stay safe" is a real (duller) option. */
+function buildFlipGate(c: Ctx, flipLane: number): void {
+  // Flip lane: jump a LOW, grab the reward line, slide a HIGH on the way out.
+  c.obstacles.push({ id: nextId++, lane: flipLane, type: "LOW", z: c.z0 + 10 });
+  energyLine(c, flipLane, c.z0 + 12, 8);
+  c.obstacles.push({ id: nextId++, lane: flipLane, type: "HIGH", z: c.z0 + 20 });
+  // Safe lanes: a small consolation orb, no hazards.
+  for (const l of LANES) if (l !== flipLane) c.energy.push({ id: nextId++, lane: l, z: c.z0 + 12, y: 0 });
+}
+
 export class SegmentGenerator {
   constructor(private seed: number) {
     reset();
@@ -111,11 +137,15 @@ export class SegmentGenerator {
     const rng = new SeededRandom(this.seed ^ (index * 2654435761));
     const startZ = index * SEGMENT_LEN;
     const diff = this.difficulty(index);
-    const pool = isBlockRunSegment(index)
-      ? BLOCK
-      : index < 3 ? ["straight_easy"] : diff < 0.3 ? EASY : diff < 0.6 ? MED : HARD;
     const c: Ctx = { rng, z0: startZ, obstacles: [], energy: [], difficulty: diff };
-    PATTERNS[rng.pick(pool)]!(c);
+    if (isFlipGateSegment(index)) {
+      buildFlipGate(c, flipLaneFor(this.seed, index));
+    } else {
+      const pool = isBlockRunSegment(index)
+        ? BLOCK
+        : index < 3 ? ["straight_easy"] : diff < 0.3 ? EASY : diff < 0.6 ? MED : HARD;
+      PATTERNS[rng.pick(pool)]!(c);
+    }
     return { index, startZ, endZ: startZ + SEGMENT_LEN, obstacles: c.obstacles, energy: c.energy };
   }
 }

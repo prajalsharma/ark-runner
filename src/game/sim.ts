@@ -4,7 +4,7 @@
  * same inputs to validate the score (anti-cheat). No Math.random, no wall-clock —
  * everything advances in fixed DT ticks.
  */
-import { SegmentGenerator, type Obstacle, type Energy, type Segment } from "./patterns.ts";
+import { SegmentGenerator, isFlipGateSegment, flipLaneFor, type Obstacle, type Energy, type Segment } from "./patterns.ts";
 import {
   DT, START_SPEED, MAX_SPEED, SPEED_RAMP, LANE_WIDTH, LANE_SWITCH_SPEED,
   GRAVITY, JUMP_V, JUMP_CLEAR_Y, SLIDE_SECS, PLAYER_DEPTH, SEGMENT_LEN, SPAWN_AHEAD,
@@ -12,6 +12,7 @@ import {
   FLOW_MULT_STEP, FLOW_MULT_MAX, FLOW_HYPER_AT,
   isBlockRunSegment, BLOCK_SPEED_MULT, BLOCK_SCORE_MULT,
   PERFECT_LOW_WINDOW, PERFECT_PIT_MAX_Y, PERFECT_SLIDE_FRAC, PERFECT_POINTS,
+  FLIP_GATE_OFFSET, FLIP_LEN_SEGS, FLIP_SCORE_MULT, FLIP_BONUS_BASE,
 } from "./constants.ts";
 
 export type Action = "left" | "right" | "jump" | "slide";
@@ -41,6 +42,11 @@ export class RunSim {
   blockRun = false;  // inside a Block Run right now
   blockRuns = 0;     // Block Runs entered this run
   private wasBlock = false;
+
+  flipActive = false; // inside an ARCH FLIP stretch the player committed to
+  flips = 0;          // flip stretches survived (banked)
+  private flipEndZ = 0;
+  private flipArmedSeg = -1;
 
   readonly seed: number;
   readonly inputs: InputEvent[] = []; // recorded for replay / server validation
@@ -86,7 +92,9 @@ export class RunSim {
 
     const base = Math.min(MAX_SPEED, START_SPEED + SPEED_RAMP * this.elapsed);
     this.speed = this.blockRun ? Math.min(MAX_SPEED * BLOCK_SPEED_MULT, base * BLOCK_SPEED_MULT) : base;
+    const prevDist = this.distance;
     this.distance += this.speed * DT;
+    this.checkFlipGate(prevDist, this.distance);
 
     // Lane slide.
     const targetX = this.lane * LANE_WIDTH;
@@ -104,10 +112,17 @@ export class RunSim {
 
     this.ensureSegments();
     this.flowMult = Math.min(FLOW_MULT_MAX, 1 + this.flow * FLOW_MULT_STEP);
-    const gain = this.blockRun ? BLOCK_SCORE_MULT : 1;
-    this.score += this.speed * DT * DIST_PER_POINT * this.flowMult * gain; // distance score, flow- & block-scaled
+    const gain = (this.blockRun ? BLOCK_SCORE_MULT : 1) * (this.flipActive ? FLIP_SCORE_MULT : 1);
+    this.score += this.speed * DT * DIST_PER_POINT * this.flowMult * gain; // distance, flow/block/flip-scaled
     this.resolveWorld(gain);
     if (this.flow > this.maxFlow) this.maxFlow = this.flow;
+
+    // Survived the flip stretch → bank the bonus.
+    if (this.flipActive && this.distance >= this.flipEndZ) {
+      this.flipActive = false;
+      this.flips++;
+      this.score += FLIP_BONUS_BASE * this.flowMult;
+    }
 
     if (this.cap && this.elapsed >= this.cap) this.end(true);
   }
@@ -168,6 +183,34 @@ export class RunSim {
   }
 
   private addFlow(): void { this.flow += FLOW_PER_ACTION; }
+
+  /** Crossing a flip gate in the flip lane commits the player to the flip stretch. */
+  private checkFlipGate(prevDist: number, z: number): void {
+    const consider = (s: number): void => {
+      if (s < 0 || this.flipArmedSeg === s || !isFlipGateSegment(s)) return;
+      const gateZ = s * SEGMENT_LEN + FLIP_GATE_OFFSET;
+      if (prevDist < gateZ && z >= gateZ) {
+        this.flipArmedSeg = s; // this gate is now spent, whatever the choice
+        if (this.lane === flipLaneFor(this.seed, s)) {
+          this.flipActive = true;
+          this.flipEndZ = s * SEGMENT_LEN + FLIP_LEN_SEGS * SEGMENT_LEN;
+        }
+      }
+    };
+    const sPrev = Math.floor(prevDist / SEGMENT_LEN);
+    consider(sPrev);
+    consider(sPrev + 1);
+  }
+
+  /** Upcoming flip gates in render range (for drawing the gate marker only). */
+  flipGatesInView(): { z: number; lane: number }[] {
+    const out: { z: number; lane: number }[] = [];
+    const start = Math.max(0, Math.floor((this.distance - 4) / SEGMENT_LEN));
+    for (let s = start; s <= start + 4; s++) {
+      if (isFlipGateSegment(s)) out.push({ z: s * SEGMENT_LEN + FLIP_GATE_OFFSET, lane: flipLaneFor(this.seed, s) });
+    }
+    return out;
+  }
 
   private end(_capped: boolean): void {
     this.alive = false;

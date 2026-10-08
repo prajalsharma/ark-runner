@@ -63,6 +63,17 @@ export function isBlockRunSegment(index: number): boolean {
   return (index % BLOCK_PERIOD_SEGS) >= (BLOCK_PERIOD_SEGS - BLOCK_LEN_SEGS);
 }
 
+// ARCH FLIP — opt-in risk/reward. At a flip gate the player chooses by lane: enter
+// the flip lane to commit to a short, harder stretch at a big multiplier, banking a
+// bonus if they survive it. Deterministic (gate + lane derive from seed + index), so
+// the choice — not the world — is the only variable, and replays reproduce exactly.
+export const FLIP_START_SEG = 6;
+export const FLIP_PERIOD_SEGS = 11; // a flip gate roughly this often
+export const FLIP_GATE_OFFSET = 4;  // z within the segment where the gate triggers
+export const FLIP_LEN_SEGS = 2;     // how long the flip stretch lasts
+export const FLIP_SCORE_MULT = 3;   // points multiplier while a flip is live
+export const FLIP_BONUS_BASE = 400; // banked (× flowMult) on surviving the stretch
+
 // Perfect Dodge — tight clearance of a same-lane hazard (skill reward).
 export const PERFECT_LOW_WINDOW = 0.5;  // cleared a LOW by <= this margin above JUMP_CLEAR_Y
 export const PERFECT_PIT_MAX_Y = 0.95;  // cleared a PIT this low = barely made it

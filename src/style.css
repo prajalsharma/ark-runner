@@ -61,14 +61,17 @@ body {
 .stat.block .v { color: #e4d2ff; }
 @keyframes pulse2 { to { box-shadow: 0 0 28px rgba(184, 107, 255, 0.85); } }
 
-/* Result stat grid */
+.stat.flip { border-color: #ffd54a; box-shadow: 0 0 18px rgba(255, 213, 74, 0.5); animation: pulse 0.5s infinite alternate; }
+.stat.flip .k { color: #ffe9a8; }
+.stat.flip .v { color: #fff3cc; }
+
+/* Result stat grid — 3 columns, wraps to as many rows as needed. */
 .stats-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 16px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; margin-top: 16px;
 }
 .stats-grid > div { display: flex; flex-direction: column; align-items: center; }
 .stats-grid .n { font-size: 20px; font-weight: 800; color: #ffd54a; }
 .stats-grid .l { font-size: 8px; letter-spacing: 1px; color: #8a90a6; margin-top: 2px; }
-@media (max-width: 420px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
 
 /* Transient toast (PERFECT / BLOCK RUN) */
 #toast {
@@ -79,6 +82,7 @@ body {
 #toast.show { animation: toast 0.85s ease-out; }
 #toast.block { color: #d7b6ff; text-shadow: 0 0 26px rgba(184, 107, 255, 0.8); }
 #toast.perfect { color: #ffd54a; }
+#toast.flip { color: #ffe9a8; text-shadow: 0 0 30px rgba(255, 213, 74, 0.9); }
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
   20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }

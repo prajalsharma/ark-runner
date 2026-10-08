@@ -10,9 +10,9 @@ import { LANE_WIDTH, OBSTACLE_H, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_B
 
 const COL = {
   bg: 0x07080c, bgBlock: 0x1a0a2e, ground: 0x12141c, lane: 0x1d2130,
-  player: 0xff7a1a, playerBlock: 0xb86bff,
+  player: 0xff7a1a, playerBlock: 0xb86bff, playerFlip: 0xffd54a,
   wall: 0xff3b3b, low: 0xffaa33, high: 0x9b6bff, pit: 0x04040a,
-  energy: 0xffd54a, tick: 0x2a2f42, streak: 0xffb24d,
+  energy: 0xffd54a, tick: 0x2a2f42, streak: 0xffb24d, gate: 0xffd54a,
 };
 
 export class Renderer {
@@ -24,17 +24,20 @@ export class Renderer {
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
   private streaks: THREE.Mesh[] = [];
+  private gatePool: THREE.Mesh[] = [];
   private fog: THREE.Fog;
   private canvas: HTMLCanvasElement;
 
   private camX = 0;          // eased camera x (shake is added on top)
   private shake = 0;         // decays every frame
   private blockLevel = 0;    // eased 0→1 Block Run intensity (smooth transitions)
+  private flipLevel = 0;     // eased 0→1 ARCH FLIP intensity
   private readonly reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   private readonly cBg = new THREE.Color(COL.bg);
   private readonly cBgBlock = new THREE.Color(COL.bgBlock);
   private readonly cPlayer = new THREE.Color(COL.player);
   private readonly cPlayerBlock = new THREE.Color(COL.playerBlock);
+  private readonly cPlayerFlip = new THREE.Color(COL.playerFlip);
   private readonly cTmp = new THREE.Color();
 
   constructor(canvas: HTMLCanvasElement) {
@@ -89,6 +92,13 @@ export class Renderer {
       m.visible = false; this.streaks.push(m); this.scene.add(m);
     }
 
+    // ARCH FLIP gate markers (glowing rings in the flip lane).
+    const gateGeo = new THREE.TorusGeometry(0.95, 0.12, 8, 24);
+    for (let i = 0; i < 4; i++) {
+      const m = new THREE.Mesh(gateGeo, new THREE.MeshStandardMaterial({ color: COL.gate, emissive: COL.gate, emissiveIntensity: 1.2, roughness: 0.3 }));
+      m.visible = false; this.gatePool.push(m); this.scene.add(m);
+    }
+
     // Player.
     this.player = new THREE.Mesh(
       new THREE.BoxGeometry(1.1, 1.6, 1.0),
@@ -129,16 +139,17 @@ export class Renderer {
   render(sim: RunSim, nowMs: number): void {
     const d = sim.distance;
 
-    // Block Run intensity eases in/out so colour + FOV transitions are smooth.
+    // Block Run / ARCH FLIP intensity ease in/out so colour + FOV transitions are smooth.
     this.blockLevel += ((sim.blockRun ? 1 : 0) - this.blockLevel) * 0.08;
+    this.flipLevel += ((sim.flipActive ? 1 : 0) - this.flipLevel) * 0.1;
 
     // Player: x follows laneX, y from jump; squash when sliding; glow with flow.
     this.player.position.x = sim.laneX;
     this.player.scale.set(1, sim.sliding ? 0.5 : 1, 1);
     this.player.position.y = (sim.sliding ? 0.42 : 0.8) + sim.y;
     const pm = this.player.material as THREE.MeshStandardMaterial;
-    pm.emissiveIntensity = Math.min(2.4, 0.6 + sim.flow * 0.12 + (sim.hyperFlow ? 0.6 : 0));
-    pm.color.copy(this.cPlayer).lerp(this.cPlayerBlock, this.blockLevel);
+    pm.emissiveIntensity = Math.min(2.6, 0.6 + sim.flow * 0.12 + (sim.hyperFlow ? 0.6 : 0) + this.flipLevel * 0.8);
+    pm.color.copy(this.cPlayer).lerp(this.cPlayerBlock, this.blockLevel).lerp(this.cPlayerFlip, this.flipLevel);
 
     // FOV ramps with speed (and a kick during Block Run) — the sense of pace.
     const speedFrac = Math.min(1, Math.max(0, (sim.speed - START_SPEED) / (MAX_SPEED * BLOCK_SPEED_MULT - START_SPEED)));
@@ -209,6 +220,21 @@ export class Renderer {
       m.visible = true;
     }
     for (; ei < this.enPool.length; ei++) this.enPool[ei]!.visible = false;
+
+    // ARCH FLIP gates.
+    const gates = sim.flipGatesInView();
+    let gi = 0;
+    const pulse = 1.2 + Math.sin(nowMs / 160) * 0.5;
+    for (const g of gates) {
+      if (gi >= this.gatePool.length) break;
+      const m = this.gatePool[gi++]!;
+      const localZ = -(g.z - d);
+      m.position.set(g.lane * LANE_WIDTH, 1.5, localZ);
+      m.rotation.y = nowMs / 600;
+      (m.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+      m.visible = localZ > -62 && localZ < 10;
+    }
+    for (; gi < this.gatePool.length; gi++) this.gatePool[gi]!.visible = false;
 
     this.gl.render(this.scene, this.cam);
   }
