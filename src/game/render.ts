@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import type { RunSim } from "./sim.ts";
 import { RunnerRig } from "./runner-rig.ts";
+import { CityScape } from "./cityscape.ts";
 import { LANE_WIDTH, OBSTACLE_H, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
 const COL = {
@@ -21,6 +22,7 @@ export class Renderer {
   private cam: THREE.PerspectiveCamera;
   private gl: THREE.WebGLRenderer;
   private rig: RunnerRig;
+  private city: CityScape;
   private obPool: THREE.Mesh[] = [];
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
@@ -114,6 +116,9 @@ export class Renderer {
       m.visible = false; this.scene.add(m);
       this.parts.push({ m, vx: 0, vy: 0, vz: 0, life: 0, max: 1 });
     }
+
+    // The city around the corridor (depth + atmosphere).
+    this.city = new CityScape(this.scene);
 
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
@@ -231,6 +236,9 @@ export class Renderer {
     this.cam.position.set(this.camX + sx, 5.4 + sy, 9);
     this.cam.lookAt(sim.laneX * 0.2, 1.4, -10);
     this.shake *= 0.86;
+
+    // City scrolls past (recycled).
+    this.city.update(d);
 
     // Floor ticks scroll.
     const spacing = 4;
