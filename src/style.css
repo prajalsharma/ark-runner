@@ -1,0 +1,61 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { height: 100%; width: 100%; overflow: hidden; }
+body {
+  background: #07080c;
+  color: #f4f1e6;
+  font-family: "Chakra Petch", "Rajdhani", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+#app { position: relative; }
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; gap: 10px; justify-content: center;
+  padding: max(14px, env(safe-area-inset-top)) 12px 0;
+  pointer-events: none;
+}
+.stat {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 92px; padding: 8px 14px;
+  background: rgba(10, 12, 20, 0.55);
+  border: 1px solid rgba(255, 122, 26, 0.25);
+  border-radius: 10px; backdrop-filter: blur(6px);
+}
+.stat .k { font-size: 10px; letter-spacing: 2px; color: #8a90a6; }
+.stat .v { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.stat.flow .v { color: #ffd54a; }
+.stat.flow.hyper { border-color: #ffd54a; box-shadow: 0 0 18px rgba(255, 213, 74, 0.5); animation: pulse 0.6s infinite alternate; }
+@keyframes pulse { to { box-shadow: 0 0 26px rgba(255, 213, 74, 0.8); } }
+
+#overlay {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  background: radial-gradient(60% 60% at 50% 40%, rgba(7,8,12,0.4), rgba(7,8,12,0.9));
+}
+#overlay.show { display: flex; }
+.card {
+  text-align: center; padding: 28px 32px; max-width: 460px; width: 88%;
+  background: rgba(12, 14, 22, 0.92);
+  border: 1px solid rgba(255, 122, 26, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(255,122,26,0.12);
+}
+.eyebrow { font-size: 11px; letter-spacing: 4px; color: #ff7a1a; }
+.card .big { font-size: 64px; font-weight: 800; letter-spacing: 1px; line-height: 1.05; margin: 6px 0; }
+.card .sub { font-size: 12px; color: #aab0c4; letter-spacing: 1px; }
+.card .best { font-size: 13px; color: #ffd54a; margin-top: 10px; letter-spacing: 2px; }
+.btn {
+  margin-top: 18px; width: 100%; padding: 14px;
+  font: inherit; font-weight: 700; font-size: 18px; letter-spacing: 2px;
+  color: #07080c; cursor: pointer;
+  background: linear-gradient(180deg, #ffb24d, #ff7a1a);
+  border: none; border-radius: 10px;
+}
+.btn:active { transform: translateY(1px); }
+.hint { margin-top: 14px; font-size: 10px; letter-spacing: 1px; color: #6b7187; }
+
+/* Title / start screen */
+.title { font-size: 44px; font-weight: 800; letter-spacing: 6px; }
+.title .accent { color: #ff7a1a; }
