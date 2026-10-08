@@ -6,14 +6,17 @@
  */
 import { SegmentGenerator, isFlipGateSegment, flipLaneFor, type Obstacle, type Energy, type Segment } from "./patterns.ts";
 import {
-  DT, START_SPEED, MAX_SPEED, SPEED_RAMP, LANE_WIDTH, LANE_SWITCH_SPEED,
+  DT, TICK_HZ, START_SPEED, MAX_SPEED, SPEED_RAMP, LANE_WIDTH, LANE_SWITCH_SPEED,
   GRAVITY, JUMP_V, JUMP_CLEAR_Y, SLIDE_SECS, PLAYER_DEPTH, SEGMENT_LEN, SPAWN_AHEAD,
-  ENERGY_VALUE, DIST_PER_POINT, NEAR_MISS_POINTS, FLOW_PER_ACTION,
-  FLOW_MULT_STEP, FLOW_MULT_MAX, FLOW_HYPER_AT,
+  ENERGY_VALUE, DIST_PER_POINT, NEAR_MISS_POINTS, NEAR_MISS_X, FLOW_PER_ACTION,
+  FLOW_MULT_STEP, FLOW_MULT_MAX, FLOW_HYPER_AT, JUMP_BUFFER_SECS,
   isBlockRunSegment, BLOCK_SPEED_MULT, BLOCK_SCORE_MULT,
   PERFECT_LOW_WINDOW, PERFECT_PIT_MAX_Y, PERFECT_SLIDE_FRAC, PERFECT_POINTS,
   FLIP_GATE_OFFSET, FLIP_LEN_SEGS, FLIP_SCORE_MULT, FLIP_BONUS_BASE,
 } from "./constants.ts";
+
+const JUMP_BUFFER_TICKS = Math.round(JUMP_BUFFER_SECS * TICK_HZ);
+export type FlowSource = "perfect" | "clear" | "near_miss" | "coin" | "";
 
 export type Action = "left" | "right" | "jump" | "slide";
 export type InputEvent = { tick: number; action: Action };
@@ -48,6 +51,9 @@ export class RunSim {
   private flipEndZ = 0;
   private flipArmedSeg = -1;
 
+  lastFlowSource: FlowSource = ""; // for the debug overlay
+  private bufferedJumpTick = -1000; // jump pressed while airborne, fired on landing
+
   readonly seed: number;
   readonly inputs: InputEvent[] = []; // recorded for replay / server validation
   private gen: SegmentGenerator;
@@ -73,7 +79,10 @@ export class RunSim {
     switch (a) {
       case "left": this.lane = Math.max(-1, this.lane - 1); break;
       case "right": this.lane = Math.min(1, this.lane + 1); break;
-      case "jump": if (this.grounded) { this.vy = JUMP_V; this.grounded = false; } break;
+      case "jump":
+        if (this.grounded) { this.vy = JUMP_V; this.grounded = false; }
+        else this.bufferedJumpTick = this.tick; // remember it; fire on landing (jump buffer)
+        break;
       case "slide": if (this.grounded) { this.sliding = true; this.slideTimer = SLIDE_SECS; } break;
     }
   }
@@ -106,7 +115,13 @@ export class RunSim {
     if (!this.grounded) {
       this.vy -= GRAVITY * DT;
       this.y += this.vy * DT;
-      if (this.y <= 0) { this.y = 0; this.vy = 0; this.grounded = true; }
+      if (this.y <= 0) {
+        this.y = 0; this.vy = 0; this.grounded = true;
+        // Jump buffer: a jump pressed just before landing fires now (responsiveness).
+        if (this.tick - this.bufferedJumpTick <= JUMP_BUFFER_TICKS) {
+          this.vy = JUMP_V; this.grounded = false; this.bufferedJumpTick = -1000;
+        }
+      }
     }
     if (this.sliding) { this.slideTimer -= DT; if (this.slideTimer <= 0) this.sliding = false; }
 
@@ -161,12 +176,15 @@ export class RunSim {
             o.type === "PIT" ? this.y < PERFECT_PIT_MAX_Y :
             o.type === "HIGH" ? this.slideTimer > SLIDE_SECS * PERFECT_SLIDE_FRAC :
             false;
-          if (perfect) { this.perfects++; this.score += PERFECT_POINTS * this.flowMult * gain; this.addFlow(); }
-          this.addFlow(); // dodged in-lane = a clean action
-        } else if (Math.abs(o.lane - this.lane) === 1) {
+          if (perfect) { this.perfects++; this.score += PERFECT_POINTS * this.flowMult * gain; this.addFlow("perfect"); }
+          this.addFlow("clear"); // cleared an in-lane hazard = a clean, skillful action
+        } else if (o.type === "WALL" && Math.abs(o.lane - this.lane) === 1 && Math.abs(this.laneX - o.lane * LANE_WIDTH) < NEAR_MISS_X) {
+          // A genuine near miss: a SOLID wall in an adjacent lane that we passed close to
+          // (usually mid lane-change). Obstacles we were never near grant nothing — this
+          // is the fix for Flow accruing from the "wrong side".
           this.nearMisses++;
           this.score += NEAR_MISS_POINTS * this.flowMult * gain;
-          this.addFlow();
+          this.addFlow("near_miss");
         }
       }
       for (const e of seg.energy) {
@@ -176,13 +194,21 @@ export class RunSim {
           this.collected++;
           this.energy += ENERGY_VALUE;
           this.score += ENERGY_VALUE * this.flowMult * gain;
-          this.addFlow();
+          this.addFlow("coin");
         }
       }
     }
   }
 
-  private addFlow(): void { this.flow += FLOW_PER_ACTION; }
+  private addFlow(src: FlowSource): void { this.flow += FLOW_PER_ACTION; this.lastFlowSource = src; }
+
+  /** One-line developer diagnostics (F3 overlay). Never shown in normal play. */
+  debugLine(): string {
+    const laneName = this.lane < 0 ? "LEFT" : this.lane > 0 ? "RIGHT" : "CENTER";
+    return `lane=${laneName}(${this.lane}) x=${this.laneX.toFixed(2)} y=${this.y.toFixed(2)} ` +
+      `flow=${this.flow}(${this.lastFlowSource || "-"}) spd=${this.speed.toFixed(1)}` +
+      `${this.blockRun ? " BLOCK" : ""}${this.flipActive ? " FLIP" : ""}`;
+  }
 
   /** Crossing a flip gate in the flip lane commits the player to the flip stretch. */
   private checkFlipGate(prevDist: number, z: number): void {

@@ -35,8 +35,29 @@ export const ENERGY_AIR_Y = 1.6; // some orbs float — jump to grab
 
 // Scoring.
 export const DIST_PER_POINT = 1; // 1 point per unit of distance
-export const NEAR_MISS_DIST = 0.7; // passing an obstacle in an adjacent lane this close = near miss
 export const NEAR_MISS_POINTS = 25;
+// A near miss only counts for a SOLID wall in an adjacent lane that you pass this
+// close to (world-x) — i.e. a genuine cut-close, not every obstacle on either side.
+export const NEAR_MISS_X = 1.3;
+
+// Jump buffer: an airborne jump press is remembered this long and fires on landing
+// (responsiveness). Deterministic — derived from ticks, so replays reproduce.
+export const JUMP_BUFFER_SECS = 0.12;
+// Coyote time is intentionally NOT implemented: the runner only leaves the ground by
+// jumping (no ledges to walk off; PITs are jumped), so there is nothing to forgive.
+
+/** Physics contract — single source of truth the level generator reads so it never
+ *  demands an action the player physically cannot perform (see patterns.ts). */
+export const JUMP_AIRTIME = (2 * JUMP_V) / GRAVITY; // seconds a jump spends airborne
+export const PHYS = {
+  maxJumpHeight: (JUMP_V * JUMP_V) / (2 * GRAVITY),
+  jumpAirtime: JUMP_AIRTIME,
+  laneSwitchSecs: LANE_WIDTH / LANE_SWITCH_SPEED,
+  slideSecs: SLIDE_SECS,
+  minReactionSecs: 0.35, // the generator must allow at least this long before a forced action
+} as const;
+/** How far (world-z) a jump carries at a given speed — a PIT gap must be <= this. */
+export const maxJumpDistance = (speed: number): number => speed * JUMP_AIRTIME;
 
 // Flow (signature mechanic). Each clean action adds flow; a hit resets it.
 export const FLOW_PER_ACTION = 1;

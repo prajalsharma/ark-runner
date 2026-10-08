@@ -35,6 +35,7 @@ export class Game {
   private ended = false;
   private recorded = false;
   private paused = false;
+  private debug = false;
   private prev: Snapshot;
   private dateKey = dateKeyUTC();
 
@@ -94,6 +95,7 @@ export class Game {
     this.audio.setDrive(this.sim.speed, this.sim.blockRun);
     this.renderer.render(this.sim, now);
     this.hud.update(this.sim);
+    if (this.debug) this.hud.setDebug(this.sim.debugLine());
 
     if (this.sim.phase === "ended" && !this.ended) {
       this.ended = true;
@@ -168,6 +170,7 @@ export class Game {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "p" || e.key === "P") this.togglePause();
       else if (e.key === "m" || e.key === "M") this.audio.toggleMute();
+      else if (e.key === "F3") { this.debug = !this.debug; if (!this.debug) this.hud.setDebug(null); e.preventDefault(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

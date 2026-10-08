@@ -21,8 +21,12 @@ export class HUD {
   private shownResult = false;
   private toastEl: HTMLElement;
   private coachEl: HTMLElement;
+  private coinsEl: HTMLElement;
+  private coinsNumEl: HTMLElement;
+  private debugEl: HTMLElement;
   private toastTimer = 0;
   private coachTimer = 0;
+  private lastCoins = 0;
 
   constructor(private hud: HTMLElement, private overlay: HTMLElement) {
     const app = document.getElementById("app") ?? document.body;
@@ -32,6 +36,21 @@ export class HUD {
     this.coachEl = document.createElement("div");
     this.coachEl.id = "coach";
     app.appendChild(this.coachEl);
+    this.coinsEl = document.createElement("div");
+    this.coinsEl.id = "coins";
+    this.coinsEl.innerHTML = `<span class="ico">🪙</span><span class="num">0</span>`;
+    app.appendChild(this.coinsEl);
+    this.coinsNumEl = this.coinsEl.querySelector(".num") as HTMLElement;
+    this.debugEl = document.createElement("div");
+    this.debugEl.id = "debug";
+    app.appendChild(this.debugEl);
+  }
+
+  /** Dev-only F3 overlay. */
+  setDebug(line: string | null): void {
+    if (line === null) { this.debugEl.classList.remove("show"); return; }
+    this.debugEl.textContent = line;
+    this.debugEl.classList.add("show");
   }
 
   /** First-run onboarding banner; auto-dismisses. */
@@ -53,6 +72,15 @@ export class HUD {
       <div class="stat"><span class="k">DIST</span><span class="v">${(sim.distance / 100).toFixed(2)} KM</span></div>
       ${block}${flip}
     `;
+    // Persistent coins counter (top-right) — pops when it increases.
+    this.coinsEl.classList.add("show");
+    if (sim.collected !== this.lastCoins) {
+      this.coinsNumEl.textContent = String(sim.collected);
+      if (sim.collected > this.lastCoins) {
+        this.coinsEl.classList.remove("pop"); void this.coinsEl.offsetWidth; this.coinsEl.classList.add("pop");
+      }
+      this.lastCoins = sim.collected;
+    }
   }
 
   /** Brief centered flash, e.g. PERFECT / BLOCK RUN. */
@@ -85,6 +113,7 @@ export class HUD {
   showResult(sim: RunSim, meta: ResultMeta): void {
     if (this.shownResult) return;
     this.shownResult = true;
+    this.coinsEl.classList.remove("show"); // the in-run counter hides on the result card
     const score = Math.floor(sim.score);
     const prevBest = readBest();
     const best = Math.max(prevBest, score);
@@ -103,13 +132,14 @@ export class HUD {
         <div class="big">${score.toLocaleString()}</div>
         <div class="sub">SURVIVED ${secs}s · ${(sim.distance / 100).toFixed(2)} KM</div>
         <div class="stats-grid">
-          <div><span class="n">${sim.collected}</span><span class="l">ENERGY</span></div>
+          <div><span class="n">🪙 ${sim.collected}</span><span class="l">COINS</span></div>
           <div><span class="n">${sim.perfects}</span><span class="l">PERFECT</span></div>
           <div><span class="n">${sim.nearMisses}</span><span class="l">NEAR MISS</span></div>
           <div><span class="n">${sim.blockRuns}</span><span class="l">BLOCK RUN</span></div>
           <div><span class="n">${sim.flips}</span><span class="l">ARCH FLIP</span></div>
           <div><span class="n">×${sim.maxFlowMult.toFixed(1)}</span><span class="l">MAX FLOW</span></div>
         </div>
+        <div class="coinnote">coins add to your score — more coins, bigger score</div>
         <div class="best">${bestLine}</div>
         <button id="retry" class="btn">RUN IT AGAIN</button>
         <div class="row">

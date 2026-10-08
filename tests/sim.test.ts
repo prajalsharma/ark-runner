@@ -81,6 +81,16 @@ test("Block Run bands are deterministic and gated past the learning phase", () =
   for (let i = 0; i < 200; i++) assert.equal(isBlockRunSegment(i), isBlockRunSegment(i));
 });
 
+test("a centered no-input runner never earns near-miss Flow from side lanes (wrong-side bug)", () => {
+  // Regression for the Flow bug: near miss now requires a SOLID adjacent wall passed
+  // close to, so a player parked in the center lane must accrue ZERO near misses.
+  for (const seed of [11, 22, 33, 44, 777, 2026]) {
+    const s = new RunSim(seed);
+    for (let i = 0; i < 500 && s.alive; i++) s.step();
+    assert.equal(s.nearMisses, 0, `seed ${seed}: centered runner must not near-miss side obstacles`);
+  }
+});
+
 test("different seeds produce different worlds (fair-but-varied)", () => {
   const sig = (seed: number) => {
     const g = new SegmentGenerator(seed);

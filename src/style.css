@@ -121,6 +121,30 @@ body {
 
 .btn.ghost.small { font-size: 11px; padding: 10px; letter-spacing: 1px; }
 
+/* Coins counter (top-right, persistent, pops on pickup) */
+#coins {
+  position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 48px); right: 12px;
+  display: none; align-items: center; gap: 6px; z-index: 4;
+  padding: 7px 12px; border-radius: 10px;
+  background: rgba(10, 12, 20, 0.55); border: 1px solid rgba(255, 213, 74, 0.35);
+  backdrop-filter: blur(6px); color: #ffd54a; font-weight: 800; font-size: 18px; letter-spacing: 1px;
+}
+#coins.show { display: flex; }
+#coins .ico { font-size: 15px; }
+#coins.pop { animation: coinpop 0.28s ease-out; }
+@keyframes coinpop { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { #coins.pop { animation: none; } }
+.coinnote { margin-top: 10px; font-size: 10px; letter-spacing: 1px; color: #8a90a6; }
+
+/* Dev debug overlay (F3) */
+#debug {
+  position: absolute; left: 10px; bottom: 10px; z-index: 6; display: none;
+  font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #9effa0;
+  background: rgba(0,0,0,0.6); padding: 6px 10px; border-radius: 6px; pointer-events: none;
+  white-space: nowrap; max-width: 95vw; overflow: hidden; text-overflow: ellipsis;
+}
+#debug.show { display: block; }
+
 /* First-run coach banner */
 #coach {
   position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%);
