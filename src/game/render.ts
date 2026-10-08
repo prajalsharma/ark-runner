@@ -6,6 +6,7 @@
  */
 import * as THREE from "three";
 import type { RunSim } from "./sim.ts";
+import { RunnerRig } from "./runner-rig.ts";
 import { LANE_WIDTH, OBSTACLE_H, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
 const COL = {
@@ -19,7 +20,7 @@ export class Renderer {
   readonly scene = new THREE.Scene();
   private cam: THREE.PerspectiveCamera;
   private gl: THREE.WebGLRenderer;
-  private player: THREE.Mesh;
+  private rig: RunnerRig;
   private obPool: THREE.Mesh[] = [];
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
@@ -114,13 +115,9 @@ export class Renderer {
       this.parts.push({ m, vx: 0, vy: 0, vz: 0, life: 0, max: 1 });
     }
 
-    // Player.
-    this.player = new THREE.Mesh(
-      new THREE.BoxGeometry(1.1, 1.6, 1.0),
-      new THREE.MeshStandardMaterial({ color: this.playerColor, emissive: 0x7a2a00, emissiveIntensity: 0.6, roughness: 0.4 }),
-    );
-    this.player.position.set(0, 0.8, 0);
-    this.scene.add(this.player);
+    // Player — a procedural jointed runner, not a box.
+    this.rig = new RunnerRig(this.playerColor);
+    this.scene.add(this.rig.group);
 
     // Pools.
     const obGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -151,7 +148,7 @@ export class Renderer {
   /** Recolour the runner live (character selection preview). */
   setPlayerColor(hex: number): void {
     this.cPlayer.set(hex);
-    (this.player.material as THREE.MeshStandardMaterial).color.set(hex);
+    this.rig.setColor(hex);
   }
 
   /** Release the WebGL context (called when a game ends, so contexts don't leak
@@ -207,14 +204,14 @@ export class Renderer {
     this.blockLevel += ((sim.blockRun ? 1 : 0) - this.blockLevel) * 0.08;
     this.flipLevel += ((sim.flipActive ? 1 : 0) - this.flipLevel) * 0.1;
 
-    // Player: x follows laneX, y from jump; squash when sliding; glow with flow.
-    this.player.position.x = sim.laneX;
-    this.player.scale.set(1, sim.sliding ? 0.5 : 1, 1);
-    this.player.position.y = (sim.sliding ? 0.42 : 0.8) + sim.y;
-    this.lastPlayerX = sim.laneX; this.lastPlayerY = this.player.position.y;
-    const pm = this.player.material as THREE.MeshStandardMaterial;
-    pm.emissiveIntensity = Math.min(2.6, 0.6 + sim.flow * 0.12 + (sim.hyperFlow ? 0.6 : 0) + this.flipLevel * 0.8);
-    pm.color.copy(this.cPlayer).lerp(this.cPlayerBlock, this.blockLevel).lerp(this.cPlayerFlip, this.flipLevel);
+    // Player: procedural runner. Colour lerps toward the Block/Flip tints; the rig
+    // plays the run/jump/slide cycle from sim state (gait phase syncs with distance).
+    const emissive = Math.min(2.6, 0.6 + sim.flow * 0.12 + (sim.hyperFlow ? 0.6 : 0) + this.flipLevel * 0.8);
+    this.cTmp.copy(this.cPlayer).lerp(this.cPlayerBlock, this.blockLevel).lerp(this.cPlayerFlip, this.flipLevel);
+    this.rig.setColorObj(this.cTmp);
+    this.rig.update({ x: sim.laneX, y: sim.y, sliding: sim.sliding, grounded: sim.grounded, phase: sim.distance * 1.15, emissive });
+    this.lastPlayerX = sim.laneX;
+    this.lastPlayerY = (sim.sliding ? 0.5 : 0.9) + sim.y;
 
     // FOV ramps with speed (and a kick during Block Run) — the sense of pace.
     const speedFrac = Math.min(1, Math.max(0, (sim.speed - START_SPEED) / (MAX_SPEED * BLOCK_SPEED_MULT - START_SPEED)));

@@ -27,13 +27,17 @@ prototype; this codebase is further along and already Arch-only). Pairs with `bu
   (`NOT_WIRED`) — no fake transactions.
 - Both surfaced in UI as **DEMO / ARCH TESTNET** so nothing misleads.
 
+## Recently added
+- **Procedural 3D character** (`src/game/runner-rig.ts`): jointed figure (head/torso/arms/legs/feet) with a
+  real run cycle, jump tuck, and slide crouch, blended smoothly. Replaces the box. Live-recolours for character select.
+- **Real wallet connect** (`src/wallet/arch.ts` `InjectedWalletProvider`): UniSat + OKX fully wired (BIP-322);
+  Xverse/Leather detected + guided. DEMO is an explicit fallback.
+
 ## Missing (from the takeover brief — build items, not bugs)
-- **Procedural 3D character + animation** — the runner is currently a juiced box (squash on slide, flow glow).
-  Next biggest visual win: a multi-mesh rig (head/body/arms/legs) with a procedural run/jump/slide cycle.
 - **Narrative**: opening cutscene, the Auditor antagonist + dialogue, an Auditor-chase set-piece.
 - **World depth**: distinct city zones, instanced buildings/towers, more environmental motion.
-- **Real Arch**: live wallet (BIP-322 via Bitcoin wallet adapter), deployed Satellite competition program,
-  on-chain entry/settlement. **Infra-blocked** here (needs a deployed program + funded testnet).
+- **Real Arch settlement**: deployed Satellite competition program + on-chain entry/payout. **Infra-blocked**
+  here (needs a deployed program + funded testnet). Wallet connect + BIP-322 signing already work client-side.
 
 ## Dangerous / to watch
 - `nextId` in `patterns.ts` is module-global (reset per generator). Fine today because the sim generates each

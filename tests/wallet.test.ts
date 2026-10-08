@@ -6,7 +6,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { MockWalletProvider } from "../src/wallet/mock.ts";
-import { ArchWalletProvider } from "../src/wallet/arch.ts";
+import { InjectedWalletProvider, detectWallets } from "../src/wallet/arch.ts";
 
 test("mock wallet connects, signs, and is deterministic per label", async () => {
   const w = new MockWalletProvider("alice");
@@ -32,8 +32,9 @@ test("mock wallet refuses to sign before connecting; disconnect clears it", asyn
   assert.equal(await w.getAddress(), null);
 });
 
-test("Arch wallet provider is honest (throws, never fakes)", async () => {
-  const w = new ArchWalletProvider("xverse");
-  await assert.rejects(w.connect(), /not wired/);
-  await assert.rejects(w.signMessage(), /not wired/);
+test("injected wallet: detects none without a browser, fails gracefully (never fakes)", async () => {
+  assert.deepEqual(detectWallets(), [], "no injected wallets without a window");
+  await assert.rejects(new InjectedWalletProvider("unisat").connect(), /no-window/);
+  // Xverse/Leather are detected-but-not-wired — they throw a guided error, not a fake session.
+  await assert.rejects(new InjectedWalletProvider("xverse").connect(), /no-window|not wired/);
 });

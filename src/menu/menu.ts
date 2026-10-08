@@ -11,16 +11,18 @@ import { dailyNumber, dailyBest, loadHistory } from "../game/daily.ts";
 import { bestEver } from "../game/cosmetics.ts";
 import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColor, characterSwatch } from "../game/characters.ts";
 import { MockWalletProvider } from "../wallet/mock.ts";
+import { detectWallets, InjectedWalletProvider, WALLET_LABEL } from "../wallet/arch.ts";
 import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
-import type { WalletSession } from "../wallet/provider.ts";
+import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
 export class Menu {
   private attract = new Attract();
   private game: Game | null = null;
-  private wallet = new MockWalletProvider();
+  private activeProvider: WalletProvider | null = null;
   private session: WalletSession | null = null;
   private profile: PlayerProfile | null = null;
+  private isDemo = false;
 
   constructor(private canvas: HTMLCanvasElement, private hud: HTMLElement, private overlay: HTMLElement) {}
 
@@ -31,9 +33,10 @@ export class Menu {
     const n = dailyNumber();
     const best = bestEver();
     const dBest = dailyBest();
+    const netLabel = this.isDemo ? "DEMO" : "BITCOIN TESTNET";
     const walletRow = this.session && this.profile
-      ? `<button id="wallet" class="walletchip connected">👤 ${this.profile.displayName} · ${this.shortAddr(this.session.address)} <span class="net">ARCH TESTNET · DEMO</span></button>`
-      : `<button id="wallet" class="walletchip">CONNECT WALLET <span class="net">DEMO</span></button>`;
+      ? `<button id="wallet" class="walletchip connected">👤 ${this.profile.displayName} · ${this.shortAddr(this.session.address)} <span class="net">${netLabel}</span></button>`
+      : `<button id="wallet" class="walletchip">CONNECT WALLET</button>`;
     this.overlay.className = "show home";
     this.overlay.innerHTML = `
       <div class="hero">
@@ -70,18 +73,43 @@ export class Menu {
     if (el) el.onclick = fn;
   }
 
-  // --- wallet (DEMO provider; explicit states; reconnect restores the profile) ---
-  private async connect(): Promise<void> {
+  // --- wallet: real injected Bitcoin wallets (UniSat/OKX), with DEMO as a fallback ---
+  private connect(): void {
+    const installed = detectWallets();
+    const realBtns = installed
+      .map((k) => `<button class="btn walletpick" data-kind="${k}">${WALLET_LABEL[k]}${k === "xverse" || k === "leather" ? " (soon)" : ""}</button>`)
+      .join("");
+    const noneMsg = installed.length ? "" : `<div class="lbnote">No Bitcoin wallet detected. Install <b>UniSat</b> or <b>OKX</b> to connect for real, or continue in DEMO mode to try everything now.</div>`;
+    this.modal("CONNECT WALLET", `
+      <div class="lbnote" style="margin:0 0 12px">Connect a Bitcoin (Taproot) wallet — this is your identity. Connecting and signing are real; on-chain settlement is still in DEMO until the Arch program is deployed.</div>
+      ${realBtns}
+      ${noneMsg}
+      <button class="btn ghost walletpick" data-kind="demo" style="margin-top:12px">CONTINUE IN DEMO</button>`);
+    this.overlay.querySelectorAll<HTMLButtonElement>(".walletpick").forEach((b) => {
+      const kind = b.dataset.kind!;
+      b.onclick = () => {
+        if (kind === "demo") this.connectWith(new MockWalletProvider(), true);
+        else this.connectWith(new InjectedWalletProvider(kind as "unisat" | "okx" | "xverse" | "leather"), false);
+      };
+    });
+  }
+
+  private async connectWith(provider: WalletProvider, isDemo: boolean): Promise<void> {
     this.overlay.className = "show";
-    this.overlay.innerHTML = `<div class="card modal"><div class="eyebrow">CONNECTING…</div><div class="lbnote">Approve the connection in your wallet. (DEMO wallet — no real signature.)</div></div>`;
+    this.overlay.innerHTML = `<div class="card modal"><div class="eyebrow">CONNECTING…</div><div class="lbnote">${isDemo ? "Starting a DEMO session — no wallet needed." : "Approve the connection in your wallet extension."}</div></div>`;
     try {
-      const session = await this.wallet.connect();
+      const session = await provider.connect();
+      this.activeProvider = provider;
       this.session = session;
+      this.isDemo = isDemo;
       const existing = getProfile(session.address);
       if (existing) { this.profile = existing; selectCharacter(existing.characterId); this.attract.setColor(selectedCharacterColor()); this.open(); }
       else this.askName(session);
-    } catch {
-      this.modal("WALLET", `<div class="lbnote">Connection cancelled or no wallet found. Install a supported Bitcoin wallet (Xverse, UniSat, Leather, OKX) for the live version.</div>`);
+    } catch (e) {
+      const msg = String(e instanceof Error ? e.message : e);
+      const friendly = /cancel|reject|denied/i.test(msg) ? "Connection cancelled." : /not found|no-window/i.test(msg) ? "Wallet not found — is the extension installed and unlocked?" : msg;
+      this.modal("WALLET", `<div class="lbnote">${friendly}</div><button id="retry" class="btn">TRY AGAIN</button>`);
+      this.bind("#retry", () => this.connect());
     }
   }
 
@@ -90,7 +118,7 @@ export class Menu {
     this.overlay.innerHTML = `
       <div class="card modal">
         <div class="eyebrow">WELCOME TO ARCH RUNNER</div>
-        <div class="lbnote" style="margin:0 0 12px">${this.shortAddr(session.address)} · ARCH TESTNET · DEMO<br>What should we call you?</div>
+        <div class="lbnote" style="margin:0 0 12px">${this.shortAddr(session.address)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}<br>What should we call you?</div>
         <input id="name" class="nameinput" maxlength="20" placeholder="RUNNER NAME" autocomplete="off" />
         <button id="enter" class="btn">ENTER THE CITY</button>
       </div>`;
@@ -105,8 +133,8 @@ export class Menu {
   }
 
   private async disconnect(): Promise<void> {
-    await this.wallet.disconnect();
-    this.session = null; this.profile = null;
+    try { await this.activeProvider?.disconnect(); } catch { /* best effort */ }
+    this.activeProvider = null; this.session = null; this.profile = null; this.isDemo = false;
     this.open();
   }
 
@@ -184,7 +212,7 @@ export class Menu {
         <div><span class="pv">${runs}</span><span class="pl">RUNS</span></div>
         <div><span class="pv">${charName}</span><span class="pl">RUNNER</span></div>
       </div>
-      <div class="lbnote">${this.shortAddr(p.walletAddress)} · ARCH TESTNET · DEMO. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);
+      <div class="lbnote">${this.shortAddr(p.walletAddress)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);
   }
 
   private modal(title: string, bodyHtml: string): void {
