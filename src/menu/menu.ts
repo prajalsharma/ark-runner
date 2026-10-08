@@ -14,6 +14,7 @@ import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColo
 import { MockWalletProvider } from "../wallet/mock.ts";
 import { detectWallets, InjectedWalletProvider, WALLET_LABEL } from "../wallet/arch.ts";
 import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
+import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
@@ -219,11 +220,14 @@ export class Menu {
     const best = bestEver();
     const runs = loadHistory().length;
     const charName = CHARACTERS.find((c) => c.id === p.characterId)?.name ?? "—";
+    const unlocked = unlockedIds().length;
     this.modal("PLAYER PROFILE", `
       <div class="profgrid">
         <div><span class="pv">${p.displayName}</span><span class="pl">NAME</span></div>
+        <div><span class="pv">LV ${runnerLevel()}</span><span class="pl">RUNNER LEVEL</span></div>
         <div><span class="pv">${best.toLocaleString()}</span><span class="pl">BEST SCORE</span></div>
         <div><span class="pv">${runs}</span><span class="pl">RUNS</span></div>
+        <div><span class="pv">${unlocked}/${ACHIEVEMENTS.length}</span><span class="pl">ACHIEVEMENTS</span></div>
         <div><span class="pv">${charName}</span><span class="pl">RUNNER</span></div>
       </div>
       <div class="lbnote">${this.shortAddr(p.walletAddress)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);

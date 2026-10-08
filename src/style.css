@@ -48,6 +48,8 @@ body {
 .card .death { font-size: 12px; letter-spacing: 1px; color: #ff6b5b; margin: 4px 0 2px; font-weight: 700; }
 .card .motiv { font-size: 12px; letter-spacing: 1px; color: #cfd3e0; margin-top: 10px; }
 .card .motiv.best { color: #ffd54a; font-weight: 800; font-size: 14px; }
+.card .unlock { margin-top: 8px; font-size: 11px; letter-spacing: 1px; color: #3ad17a; font-weight: 700; }
+.card .unlock.lvl { color: #9b6bff; }
 .card .best { font-size: 13px; color: #ffd54a; margin-top: 10px; letter-spacing: 2px; }
 .btn {
   margin-top: 18px; width: 100%; padding: 14px;

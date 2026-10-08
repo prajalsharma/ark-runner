@@ -12,6 +12,7 @@ import { attachInput } from "../engine/input.ts";
 import { type Mode, dailySeed, dateKeyUTC, dailyNumber, recordRun, dailyBest } from "./daily.ts";
 import { selectedCharacterColor } from "./characters.ts";
 import { submitRun } from "../net/api.ts";
+import { recordRunStats } from "./achievements.ts";
 
 export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
 
@@ -114,6 +115,10 @@ export class Game {
       this.recorded = true;
       recordRun({ score: Math.floor(s.score), mode: this.mode, dateKey: this.dateKey, ts: Date.now(), dist: s.distance, flips: s.flips, blockRuns: s.blockRuns });
     }
+    // Progression: cumulative stats, XP/level, achievements (once per run).
+    const prog = recordRunStats({ score: Math.floor(s.score), coins: s.collected, distance: s.distance, perfects: s.perfects, maxFlowMult: s.maxFlowMult, archFlips: s.flips, blockRuns: s.blockRuns });
+    if (prog.unlocked.length || prog.leveledUp) this.audio.play("perfect");
+
     // Beat your prior best → a little fanfare (reads the old best before the card writes it).
     let prevBest = 0;
     try { prevBest = Number(localStorage.getItem("archrunner.best.v1") || 0); } catch { /* ephemeral */ }
@@ -132,6 +137,9 @@ export class Game {
       onRetry: () => this.restart(),
       onShare: () => this.share(),
       onMenu: this.onMenu ? () => { this.onMenu?.(); } : undefined,
+      unlocked: prog.unlocked.map((a) => a.title),
+      level: prog.level,
+      leveledUp: prog.leveledUp,
     };
     this.hud.showResult(s, meta);
   }
