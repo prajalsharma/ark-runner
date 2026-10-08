@@ -148,6 +148,13 @@ export class Renderer {
     this.cam.updateProjectionMatrix();
   }
 
+  /** Release the WebGL context (called when a game ends, so contexts don't leak
+   *  across menu↔game cycles). */
+  dispose(): void {
+    this.gl.dispose();
+    this.gl.forceContextLoss();
+  }
+
   /** Called by the orchestrator on gameplay events (impact feedback). */
   addShake(v: number): void { if (!this.reduced) this.shake = Math.min(1.3, this.shake + v); }
 

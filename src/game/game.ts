@@ -198,5 +198,7 @@ export class Game {
     this.detachKeys();
     this.sysbar.remove();
     this.hud.hideResult();
+    this.hud.setDebug(null);
+    this.renderer.dispose();
   }
 }

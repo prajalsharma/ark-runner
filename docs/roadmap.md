@@ -23,6 +23,15 @@ flow-scaled bonus if you survive it (die and you lose it — that's the risk). T
 the only variable, so replays reproduce exactly (tested). Gold world tint + gate markers + riser/chime SFX +
 HUD chip + toasts. Never coincides with a Block Run.
 
+## Landing / Main Menu ✅ (shipped — P1)
+A real front page, not a dev dashboard: a **live 3D attract scene** (the real renderer + sim with an autopilot
+that weaves/jumps/slides) runs behind a hero — title, "RUN THE BLOCK · MASTER THE FLOW", **PLAY DAILY BLOCK #N**
++ FREE RUN, real best/today stats. Nav to **HOW IT WORKS** (7 plain-language cards: Perfect, Flow, Arch Flip,
+Coins, Block Run, Daily Block, Competition & Arch), a **local LEADERBOARD** (today's best + recent runs, honestly
+labelled local until the backend), and **RUNNER** select. Attract runs on its own canvas; the game renderer is
+disposed on stop so WebGL contexts don't leak across menu↔game. Build clean, tests 33/33. (Visual feel pending a
+human `npm run dev` playtest — can't render a canvas in CI.)
+
 ## Phase 2c — Polish + wallet seam ✅ (partially shipped)
 Shipped: **particle bursts** (collect / perfect / flip-bank / death, render-only, reduced-motion aware),
 **first-run tutorial coach** (auto-dismiss, once per device), and the **WalletProvider seam**

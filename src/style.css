@@ -173,3 +173,58 @@ body {
 /* Title / start screen */
 .title { font-size: 44px; font-weight: 800; letter-spacing: 6px; }
 .title .accent { color: #ff7a1a; }
+
+/* ---- Layering (game canvas < attract < HUD bits < overlay) ---- */
+#scene { z-index: 0; }
+#attract { position: absolute; inset: 0; width: 100%; height: 100%; display: none; z-index: 1; }
+#attract.show { display: block; }
+#hud { z-index: 3; }
+#coach { z-index: 3; }
+#coins { z-index: 4; }
+#sysbar { z-index: 5; }
+#debug { z-index: 6; }
+#toast { z-index: 7; }
+#overlay { z-index: 10; }
+
+/* ---- Landing hero (over the live 3D) ---- */
+.home .hero {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 14px; padding: 24px; width: 92%; max-width: 560px;
+}
+.home .title { font-size: clamp(40px, 11vw, 72px); line-height: 1; text-shadow: 0 6px 40px rgba(0,0,0,0.7); }
+.tagline { font-size: clamp(12px, 3.3vw, 16px); letter-spacing: 4px; color: #cfd3e0; }
+.playbtns { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; margin-top: 6px; }
+.playbtns .btn { margin-top: 0; }
+.statline { display: flex; gap: 28px; margin-top: 4px; }
+.statline > div { display: flex; flex-direction: column; }
+.statline .sv { font-size: 22px; font-weight: 800; color: #ffd54a; }
+.statline .sl { font-size: 9px; letter-spacing: 2px; color: #8a90a6; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.navbtn {
+  font: inherit; font-size: 11px; letter-spacing: 2px; cursor: pointer;
+  padding: 10px 16px; border-radius: 10px; color: #e9ecf5;
+  background: rgba(10,12,20,0.5); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(6px);
+}
+.navbtn:active { transform: translateY(1px); }
+.footnote { font-size: 10px; letter-spacing: 1px; color: #8a90a6; margin-top: 6px; }
+.footnote b { color: #ff9b4d; }
+
+/* ---- Modals (how-to / leaderboard / runner) ---- */
+.card.modal { max-width: 560px; text-align: left; }
+.card.modal .eyebrow { text-align: center; display: block; margin-bottom: 14px; font-size: 13px; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+.htc { padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,122,26,0.18); }
+.htt { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #ff9b4d; margin-bottom: 6px; }
+.htb { font-size: 12px; line-height: 1.5; color: #cfd3e0; }
+.htb b { color: #ffd54a; }
+
+.lbhead { font-size: 11px; letter-spacing: 2px; color: #ffd54a; text-align: center; margin-bottom: 8px; }
+.lbrow { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); margin-bottom: 4px; }
+.lbrank { width: 22px; color: #8a90a6; font-weight: 700; }
+.lbtag { font-size: 9px; letter-spacing: 1px; color: #9b6bff; flex: 1; }
+.lbscore { color: #ffd54a; font-weight: 800; }
+.lbempty { text-align: center; color: #aab0c4; font-size: 12px; padding: 16px; }
+.lbnote { font-size: 10px; color: #8a90a6; margin-top: 10px; line-height: 1.5; text-align: center; }
+.skins.big { gap: 8px; margin: 4px 0 6px; }
+.skins.big .skin { font-size: 11px; padding: 10px 12px; }
