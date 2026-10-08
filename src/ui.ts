@@ -14,6 +14,7 @@ export type ResultMeta = {
   unlocked?: string[];
   level?: number;
   leveledUp?: boolean;
+  challenge?: { name: string; goal: string; met: boolean };
 };
 
 const bestKey = "archrunner.best.v1";
@@ -136,6 +137,9 @@ export class HUD {
       : prevBest - score > 0
         ? `<div class="motiv">${(prevBest - score).toLocaleString()} to beat your best — one more run?</div>`
         : "";
+    const chal = meta.challenge
+      ? `<div class="challenge-result ${meta.challenge.met ? "met" : "miss"}">${meta.challenge.met ? "✓ CHALLENGE COMPLETE" : "✗ " + meta.challenge.goal} · ${meta.challenge.name}</div>`
+      : "";
     const unlocks = (meta.unlocked ?? []).map((t) => `<div class="unlock">★ UNLOCKED — ${t}</div>`).join("");
     const levelUp = meta.leveledUp ? `<div class="unlock lvl">▲ RUNNER LEVEL ${meta.level}</div>` : "";
     this.overlay.innerHTML = `
@@ -155,7 +159,7 @@ export class HUD {
         </div>
         <div class="coinnote">coins add to your score — more coins, bigger score</div>
         <div class="best">${bestLine}</div>
-        ${levelUp}${unlocks}
+        ${chal}${levelUp}${unlocks}
         <button id="retry" class="btn">RUN IT AGAIN</button>
         <div class="row">
           <button id="share" class="btn ghost">SHARE</button>

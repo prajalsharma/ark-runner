@@ -6,7 +6,7 @@
  */
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { dailySeed, dailyNumber } from "../src/game/daily.ts";
+import { dailySeed, dailyNumber, dailyVariant } from "../src/game/daily.ts";
 import { RunSim } from "../src/game/sim.ts";
 
 test("daily seed is a pure function of the date", () => {
@@ -18,6 +18,16 @@ test("daily block number counts days from the epoch", () => {
   assert.equal(dailyNumber("2026-01-01"), 1);
   assert.equal(dailyNumber("2026-01-02"), 2);
   assert.ok(dailyNumber("2026-12-31") > dailyNumber("2026-06-01"));
+});
+
+test("daily challenge variant is deterministic by date and tests stats", () => {
+  const v1 = dailyVariant("2026-05-01");
+  assert.equal(v1.id, dailyVariant("2026-05-01").id, "same day → same challenge for everyone");
+  // The variant's goal is a pure stat predicate.
+  const coinStorm = dailyVariant("2026-05-01");
+  const met = coinStorm.test({ coins: 999, flips: 9, perfects: 99, blockRuns: 9, distance: 9999, elapsed: 999 });
+  assert.equal(met, true, "a maxed run meets any variant goal");
+  assert.equal(dailyVariant("2026-05-01").test({ coins: 0, flips: 0, perfects: 0, blockRuns: 0, distance: 0, elapsed: 0 }), false);
 });
 
 test("two players on the same daily seed get the same world", () => {

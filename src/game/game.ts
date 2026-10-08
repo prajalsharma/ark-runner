@@ -9,7 +9,7 @@ import { Renderer } from "./render.ts";
 import { HUD, type ResultMeta } from "../ui.ts";
 import { AudioManager } from "../engine/audio.ts";
 import { attachInput } from "../engine/input.ts";
-import { type Mode, dailySeed, dateKeyUTC, dailyNumber, recordRun, dailyBest } from "./daily.ts";
+import { type Mode, dailySeed, dateKeyUTC, dailyNumber, dailyBest, dailyVariant, recordRun } from "./daily.ts";
 import { selectedCharacterColor } from "./characters.ts";
 import { submitRun } from "../net/api.ts";
 import { recordRunStats } from "./achievements.ts";
@@ -140,6 +140,10 @@ export class Game {
       unlocked: prog.unlocked.map((a) => a.title),
       level: prog.level,
       leveledUp: prog.leveledUp,
+      challenge: this.mode === "daily" ? (() => {
+        const v = dailyVariant(this.dateKey);
+        return { name: v.name, goal: v.goal, met: v.test({ coins: s.collected, flips: s.flips, perfects: s.perfects, blockRuns: s.blockRuns, distance: s.distance, elapsed: s.elapsed }) };
+      })() : undefined,
     };
     this.hud.showResult(s, meta);
   }

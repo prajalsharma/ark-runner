@@ -8,7 +8,7 @@
 import { Game } from "../game/game.ts";
 import { Attract } from "./attract.ts";
 import { Cutscene } from "./cutscene.ts";
-import { dailyNumber, dailyBest, loadHistory } from "../game/daily.ts";
+import { dailyNumber, dailyBest, loadHistory, dailyVariant } from "../game/daily.ts";
 import { bestEver } from "../game/cosmetics.ts";
 import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColor, characterSwatch } from "../game/characters.ts";
 import { MockWalletProvider } from "../wallet/mock.ts";
@@ -57,6 +57,7 @@ export class Menu {
         <div class="tagline">RUN THE BLOCK · BREAK THE SCORE</div>
         <div class="playbtns">
           <button id="daily" class="btn">PLAY DAILY BLOCK #${n}</button>
+          <div class="todaychal">TODAY · ${dailyVariant().name} — ${dailyVariant().goal}</div>
           <button id="free" class="btn ghost">FREE RUN</button>
         </div>
         <div class="statline">

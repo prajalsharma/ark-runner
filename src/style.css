@@ -50,6 +50,10 @@ body {
 .card .motiv.best { color: #ffd54a; font-weight: 800; font-size: 14px; }
 .card .unlock { margin-top: 8px; font-size: 11px; letter-spacing: 1px; color: #3ad17a; font-weight: 700; }
 .card .unlock.lvl { color: #9b6bff; }
+.card .challenge-result { margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+.card .challenge-result.met { color: #3ad17a; }
+.card .challenge-result.miss { color: #ffb24d; }
+.todaychal { font-size: 10px; letter-spacing: 1px; color: #ff9b4d; text-align: center; margin: -2px 0 2px; }
 .card .best { font-size: 13px; color: #ffd54a; margin-top: 10px; letter-spacing: 2px; }
 .btn {
   margin-top: 18px; width: 100%; padding: 14px;
