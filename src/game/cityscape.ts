@@ -14,22 +14,26 @@ const COL = { building: 0x0a0c14, windowGlow: 0xffa94d, arch: 0xa85f23, lamp: 0x
 /** Procedural window grid: lit (orange) + dark cells, baked once, tiled across façades. */
 function makeWindowTexture(): THREE.Texture {
   if (typeof document === "undefined") return new THREE.Texture();
+  const S = 4; // supersample so the window cells have crisp edges (not blocky)
   const c = document.createElement("canvas");
-  c.width = 64; c.height = 128;
+  c.width = 64 * S; c.height = 128 * S;
   const ctx = c.getContext("2d")!;
-  ctx.fillStyle = "#06070c"; ctx.fillRect(0, 0, 64, 128);
-  const cols = 4, rows = 8, pad = 5;
-  const cw = (64 - pad * 2) / cols, rh = (128 - pad * 2) / rows;
+  ctx.fillStyle = "#06070c"; ctx.fillRect(0, 0, c.width, c.height);
+  const cols = 4, rows = 8, pad = 5 * S;
+  const cw = (c.width - pad * 2) / cols, rh = (c.height - pad * 2) / rows;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const lit = (x * 7 + y * 13 + x * y) % 5 < 2;
-      ctx.fillStyle = lit ? "#ffb15a" : "#0e1019";
-      ctx.fillRect(pad + x * cw + 1, pad + y * rh + 1, cw - 3, rh - 3);
+      // slight warm variation on lit windows so the façade isn't a flat repeat
+      ctx.fillStyle = lit ? ((x + y) % 3 === 0 ? "#ffd38a" : "#ffb15a") : "#0e1019";
+      ctx.fillRect(pad + x * cw + 1 * S, pad + y * rh + 1 * S, cw - 3 * S, rh - 3 * S);
     }
   }
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(2, 6);
+  t.anisotropy = 8; // crisp at the grazing angles the street buildings are seen from
+  t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
 }
 
@@ -83,15 +87,19 @@ export class CityScape {
     this.span = count * spacing;
     // Three depth layers each side: a near street wall (fills the old dark gap beside the
     // road), a mid row, and a far skyline row — so the street has foreground/mid/background.
-    const rows = [5.0, 9.5, 17];
+    // The near row's INNER edge must clear the road: lanes span x∈[-3.45,3.45], so with a
+    // max half-width of ~2.4 the near base is 6.5 → inner edge ≥ 4.1 (on the sidewalk, never
+    // on the running lanes). This fixes buildings poking onto the street.
+    const rows = [6.5, 10.5, 18];
     for (const side of [-1, 1]) {
       for (let r = 0; r < rows.length; r++) {
         for (let i = 0; i < count; i++) {
           const near = r === 0;
           const h = (near ? 5 : 8) + ((i * 37 + r * 13 + (side > 0 ? 5 : 0)) % (near ? 14 : 26));
-          const w = 2.8 + ((i * 7) % 3);
+          const w = 2.6 + ((i * 7) % 3) * 0.8;
           const d = 3 + ((i * 5) % 3);
           const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), cityMat);
+          // offset pushes buildings OUTWARD only (never toward the road).
           m.position.set(side * (rows[r]! + ((i * 3) % 4)), h / 2 - 0.1, 0);
           this.group.add(m);
           this.items.push({ m, baseZ: i * spacing + r * 5 });

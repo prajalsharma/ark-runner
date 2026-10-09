@@ -307,10 +307,14 @@ export class Renderer {
     window.addEventListener("resize", this.onWindowResize);
   }
 
-  /** (Re)build the post chain — bloom on authored emissive only. Skipped on low/reduced. */
+  /** (Re)build the post chain — bloom on authored emissive only. Skipped on low/reduced.
+   *  Uses a MULTISAMPLED render target: EffectComposer otherwise renders to a plain target
+   *  with NO antialiasing (the renderer's `antialias:true` only covers the default canvas),
+   *  which is what makes a post-processed scene look harshly jagged / "pixelated". */
   private buildComposer(): void {
     if (this.lowQ || this.reduced) { this.composer = null; this.bloom = null; return; }
-    this.composer = new EffectComposer(this.gl);
+    const rt = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType });
+    this.composer = new EffectComposer(this.gl, rt);
     this.composer.addPass(new RenderPass(this.scene, this.cam));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.7, 0.72);
     this.composer.addPass(this.bloom);
