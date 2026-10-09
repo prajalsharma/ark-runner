@@ -135,8 +135,9 @@ export class RunnerRig {
     this.suitMat.emissiveIntensity = 0.35 + st.emissive * 0.25;
     this.visorMat.emissiveIntensity = 1.2 + st.emissive * 0.4;
 
-    this.airF = lerp(this.airF, st.grounded ? 0 : 1, 0.25);
-    this.slideF = lerp(this.slideF, st.sliding ? 1 : 0, 0.3);
+    // Snappy pose response: blend INTO air/slide fast (crisp reaction), ease OUT a bit softer.
+    this.airF = lerp(this.airF, st.grounded ? 0 : 1, st.grounded ? 0.3 : 0.5);
+    this.slideF = lerp(this.slideF, st.sliding ? 1 : 0, st.sliding ? 0.55 : 0.35);
 
     const run = (1 - this.airF) * (1 - this.slideF);
     const p = st.phase;
