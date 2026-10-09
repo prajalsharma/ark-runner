@@ -166,6 +166,8 @@ body {
 }
 #coins.show { display: flex; }
 #coins .ico { font-size: 15px; }
+.btcico { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #f7931a; color: #fff; font-weight: 800; font-size: 13px; line-height: 1; box-shadow: 0 0 10px rgba(247,147,26,0.6); }
+.btcico.sm { width: 16px; height: 16px; font-size: 11px; vertical-align: -2px; }
 #coins.pop { animation: coinpop 0.28s ease-out; }
 @keyframes coinpop { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { #coins.pop { animation: none; } }

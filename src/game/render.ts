@@ -15,8 +15,21 @@ const COL = {
   bg: 0x07080c, bgBlock: 0x1a0a2e, ground: 0x12141c, lane: 0x1d2130,
   player: 0xff7a1a, playerBlock: 0xb86bff, playerFlip: 0xffd54a,
   wall: 0xff3b3b, low: 0xffaa33, high: 0x9b6bff, pit: 0x04040a,
-  energy: 0xffd54a, tick: 0x2a2f42, streak: 0xffb24d, gate: 0xffd54a,
+  energy: 0xf7931a, tick: 0x2a2f42, streak: 0xffb24d, gate: 0xffd54a, // energy = Bitcoin orange
 };
+
+/** A Bitcoin coin face: orange disc with a white ₿. Baked once, used on the coin caps. */
+function makeBitcoinTexture(): THREE.Texture {
+  if (typeof document === "undefined") return new THREE.Texture();
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#f7931a"; ctx.beginPath(); ctx.arc(64, 64, 62, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.font = "bold 86px Georgia, serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("₿", 64, 70); // ₿
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
 
 export class Renderer {
   readonly scene = new THREE.Scene();
@@ -28,7 +41,8 @@ export class Renderer {
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
   private streaks: THREE.Mesh[] = [];
-  private gatePool: THREE.Mesh[] = [];
+  private gatePool: THREE.Group[] = [];
+  private flipMat!: THREE.MeshStandardMaterial;
   private parts: { m: THREE.Mesh; vx: number; vy: number; vz: number; life: number; max: number }[] = [];
   private lastPlayerX = 0;
   private lastPlayerY = 0.8;
@@ -106,11 +120,16 @@ export class Renderer {
       m.visible = false; this.streaks.push(m); this.scene.add(m);
     }
 
-    // ARCH FLIP gate markers (glowing rings in the flip lane).
-    const gateGeo = new THREE.TorusGeometry(0.95, 0.12, 8, 24);
+    // ARCH FLIP markers: a glowing GATEWAY FRAME (two posts + a top bar) in the flip
+    // lane — not a ring, and sized to one lane so it doesn't obscure the view.
+    this.flipMat = new THREE.MeshStandardMaterial({ color: COL.gate, emissive: COL.gate, emissiveIntensity: 1.2, roughness: 0.3 });
+    const postGeo = new THREE.BoxGeometry(0.16, 2.3, 0.16);
+    const barGeo = new THREE.BoxGeometry(1.9, 0.16, 0.16);
     for (let i = 0; i < 4; i++) {
-      const m = new THREE.Mesh(gateGeo, new THREE.MeshStandardMaterial({ color: COL.gate, emissive: COL.gate, emissiveIntensity: 1.2, roughness: 0.3 }));
-      m.visible = false; this.gatePool.push(m); this.scene.add(m);
+      const grp = new THREE.Group();
+      for (const px of [-0.9, 0.9]) { const p = new THREE.Mesh(postGeo, this.flipMat); p.position.set(px, 1.15, 0); grp.add(p); }
+      const bar = new THREE.Mesh(barGeo, this.flipMat); bar.position.set(0, 2.3, 0); grp.add(bar);
+      grp.visible = false; this.gatePool.push(grp); this.scene.add(grp);
     }
 
     // Particle pool (collect sparkles / death burst). Render-only.
@@ -135,10 +154,14 @@ export class Renderer {
       const m = new THREE.Mesh(obGeo, new THREE.MeshStandardMaterial({ roughness: 0.5 }));
       m.visible = false; this.obPool.push(m); this.scene.add(m);
     }
-    const enGeo = new THREE.IcosahedronGeometry(0.34, 0);
-    const enMat = new THREE.MeshStandardMaterial({ color: COL.energy, emissive: 0xffb300, emissiveIntensity: 0.9, roughness: 0.2 });
+    // Bitcoin coins: orange disc with a ₿ face (texture on the caps), facing the camera.
+    const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.07, 22);
+    const btcTex = makeBitcoinTexture();
+    const coinSide = new THREE.MeshStandardMaterial({ color: 0xc9790f, emissive: 0xf7931a, emissiveIntensity: 0.5, roughness: 0.4, metalness: 0.55 });
+    const coinFace = new THREE.MeshStandardMaterial({ map: btcTex, emissiveMap: btcTex, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.4, metalness: 0.3 });
     for (let i = 0; i < 48; i++) {
-      const m = new THREE.Mesh(enGeo, enMat);
+      const m = new THREE.Mesh(coinGeo, [coinSide, coinFace, coinFace]);
+      m.rotation.x = Math.PI / 2; // caps face the camera
       m.visible = false; this.enPool.push(m); this.scene.add(m);
     }
 
@@ -306,22 +329,20 @@ export class Renderer {
       if (ei >= this.enPool.length) break;
       const m = this.enPool[ei++]!;
       m.position.set(e.lane * LANE_WIDTH, 0.6 + e.y, -(e.z - d));
-      m.rotation.y = nowMs / 400;
+      m.rotation.set(Math.PI / 2, 0, nowMs / 600); // spin in-plane, ₿ facing camera
       m.visible = true;
     }
     for (; ei < this.enPool.length; ei++) this.enPool[ei]!.visible = false;
 
-    // ARCH FLIP gates.
+    // ARCH FLIP gateway frames (one shared pulsing material).
     const gates = sim.flipGatesInView();
     let gi = 0;
-    const pulse = 1.2 + Math.sin(nowMs / 160) * 0.5;
+    this.flipMat.emissiveIntensity = 1.2 + Math.sin(nowMs / 160) * 0.5;
     for (const g of gates) {
       if (gi >= this.gatePool.length) break;
       const m = this.gatePool[gi++]!;
       const localZ = -(g.z - d);
-      m.position.set(g.lane * LANE_WIDTH, 1.5, localZ);
-      m.rotation.y = nowMs / 600;
-      (m.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+      m.position.set(g.lane * LANE_WIDTH, 0, localZ);
       m.visible = localZ > -62 && localZ < 10;
     }
     for (; gi < this.gatePool.length; gi++) this.gatePool[gi]!.visible = false;

@@ -42,7 +42,7 @@ export class HUD {
     app.appendChild(this.coachEl);
     this.coinsEl = document.createElement("div");
     this.coinsEl.id = "coins";
-    this.coinsEl.innerHTML = `<span class="ico">🪙</span><span class="num">0</span>`;
+    this.coinsEl.innerHTML = `<span class="btcico">₿</span><span class="num">0</span>`;
     app.appendChild(this.coinsEl);
     this.coinsNumEl = this.coinsEl.querySelector(".num") as HTMLElement;
     this.debugEl = document.createElement("div");
@@ -150,7 +150,7 @@ export class HUD {
         <div class="sub">SURVIVED ${secs}s · ${(sim.distance / 100).toFixed(2)} KM</div>
         ${motiv}
         <div class="stats-grid">
-          <div><span class="n">🪙 ${sim.collected}</span><span class="l">COINS</span></div>
+          <div><span class="n"><span class="btcico sm">₿</span> ${sim.collected}</span><span class="l">COINS</span></div>
           <div><span class="n">${sim.perfects}</span><span class="l">PERFECT</span></div>
           <div><span class="n">${sim.nearMisses}</span><span class="l">NEAR MISS</span></div>
           <div><span class="n">${sim.blockRuns}</span><span class="l">BLOCK RUN</span></div>

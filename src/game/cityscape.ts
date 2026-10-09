@@ -63,14 +63,16 @@ export class CityScape {
       }
     }
 
-    // Half-torus = a semicircular ARCHWAY rising from the floor (not a full ring/circle).
-    const gateGeo = new THREE.TorusGeometry(4.3, 0.3, 8, 22, Math.PI);
+    // Semicircular ARCHWAY (half-torus), lifted high and wide so the structure clears
+    // all gameplay (lanes ±2.2, obstacles ≤ ~2.6 tall) — it frames the road overhead and
+    // its pillars sit at ±5.5, well outside the lanes, so it never hides obstacles/coins.
+    const gateGeo = new THREE.TorusGeometry(5.5, 0.32, 8, 24, Math.PI);
     const gateMat = new THREE.MeshStandardMaterial({ color: COL.arch, emissive: 0x4a2206, emissiveIntensity: 0.28, roughness: 0.75, metalness: 0.2 });
-    const legGeo = new THREE.BoxGeometry(0.42, 4.2, 0.42);
+    const legGeo = new THREE.BoxGeometry(0.44, 2.6, 0.44);
     for (let i = 0; i < 3; i++) {
       const g = new THREE.Mesh(gateGeo, gateMat);
-      g.position.y = 0;
-      for (const sx of [-4.3, 4.3]) { const leg = new THREE.Mesh(legGeo, gateMat); leg.position.set(sx, 2.1, 0); g.add(leg); }
+      g.position.y = 2.6; // arch base overhead; legs drop to the floor
+      for (const sx of [-5.5, 5.5]) { const leg = new THREE.Mesh(legGeo, gateMat); leg.position.set(sx, -1.3, 0); g.add(leg); }
       this.gates.push(g); this.group.add(g);
     }
 
