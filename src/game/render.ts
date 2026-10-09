@@ -27,11 +27,14 @@ export type Hero = {
 };
 import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
+// TRON / cyberpunk palette: near-black base, neon cyan grid, Bitcoin-orange brand, hot
+// magenta hazards, violet flip/block. Bloom turns the emissive into glow (see docs/STORY_AND_DESIGN.md).
 const COL = {
-  bg: 0x1a1530, bgBlock: 0x1a0a2e, ground: 0x0e1018, lane: 0x1d2130, // bg = dusk haze (towers fade into the horizon, not black)
+  bg: 0x04060e, bgBlock: 0x0a0520, ground: 0x03050c, lane: 0x071018,
+  grid: 0x16e0ff,            // neon cyan grid lines (the Tron floor)
   player: 0xff7a1a, playerBlock: 0xb86bff, playerFlip: 0xffd54a,
-  wall: 0xff3b3b, low: 0xffaa33, high: 0x9b6bff, pit: 0x04040a,
-  energy: 0xf7931a, tick: 0x2a2f42, streak: 0xffb24d, gate: 0xffd54a, // energy = Bitcoin orange
+  wall: 0xff2a5f, low: 0xffaa33, high: 0x9b6bff, pit: 0x04040a,
+  energy: 0xf7931a, tick: 0x16e0ff, streak: 0x16e0ff, gate: 0x16e0ff, // energy = Bitcoin orange
 };
 
 /** Scripted camera/actor state for one cinematic frame (the opening cutscene). */
@@ -205,10 +208,10 @@ export class Renderer {
       this.scene.add(this.key.target);
     }
     this.scene.add(this.key);
-    const rim = new THREE.DirectionalLight(0xff8a3a, 0.7);
-    rim.position.set(-7, 5, -6); // back-right, warm — rim-lights the runner's silhouette
+    const rim = new THREE.DirectionalLight(0x2ad4ff, 0.7);
+    rim.position.set(-7, 5, -6); // back-left, cyan — neon rim on the runner's silhouette
     this.scene.add(rim);
-    const practical = new THREE.PointLight(0xff7a1a, 0.6, 40);
+    const practical = new THREE.PointLight(0x19e5ff, 0.6, 40);
     practical.position.set(0, 3, 2);
     this.scene.add(practical);
 
@@ -229,20 +232,21 @@ export class Renderer {
     floor.position.set(0, -0.15, -160);
     floor.receiveShadow = true;
     this.scene.add(floor);
+    // Neon-cyan lane lines — the Tron grid that marks the two lane boundaries.
     for (const x of [-LANE_WIDTH / 2, LANE_WIDTH / 2]) {
       const div = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.32, 400),
-        new THREE.MeshStandardMaterial({ color: COL.lane, emissive: 0x111827, roughness: 1 }),
+        new THREE.BoxGeometry(0.07, 0.05, 400),
+        new THREE.MeshStandardMaterial({ color: 0x06202a, emissive: COL.grid, emissiveIntensity: 1.3, roughness: 0.5 }),
       );
-      div.position.set(x, -0.05, -160);
+      div.position.set(x, 0.02, -160);
       this.scene.add(div);
     }
     const roadEdge = LANE_WIDTH * 1.5 + 0.15; // ±3.45
-    // Glowing road-edge strips — the lane boundary reads, and gives the street a kerb line.
+    // Orange "fee lane" edge strips (Bitcoin accent) framing the cyan grid.
     for (const sx of [-1, 1]) {
       const edge = new THREE.Mesh(
-        new THREE.BoxGeometry(0.1, 0.06, 400),
-        new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: COL.energy, emissiveIntensity: 0.6, roughness: 0.5 }),
+        new THREE.BoxGeometry(0.12, 0.06, 400),
+        new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: COL.energy, emissiveIntensity: 1.0, roughness: 0.5 }),
       );
       edge.position.set(sx * roadEdge, 0.02, -160);
       this.scene.add(edge);

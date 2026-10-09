@@ -97,8 +97,10 @@ export class HeroGLB {
     }
     if (!this.actions.run) throw new Error("hero GLB has no 'run' clip");
 
-    // Swap the fallback out for the real thing.
+    // Swap the fallback out for the real thing. Face travel (−z) like the procedural rig so
+    // the camera (behind) sees the back, not the face (otherwise it reads as running backwards).
     this.group.remove(this.fallback.group);
+    root.rotation.y = Math.PI;
     this.group.add(root);
     this.actions.run.play();
     this.current = "run";

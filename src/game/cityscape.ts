@@ -9,7 +9,7 @@
  */
 import * as THREE from "three";
 
-const COL = { building: 0x0a0c14, windowGlow: 0xffa94d, arch: 0xa85f23, lamp: 0xf7931a };
+const COL = { building: 0x05070e, windowGlow: 0x19e5ff, arch: 0x16e0ff, lamp: 0x19e5ff }; // TRON: dark data-towers, neon-cyan edges/lamps/block-gates
 
 /** Procedural window grid: lit (orange) + dark cells, baked once, tiled across façades. */
 function makeWindowTexture(): THREE.Texture {
@@ -24,8 +24,8 @@ function makeWindowTexture(): THREE.Texture {
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const lit = (x * 7 + y * 13 + x * y) % 5 < 2;
-      // slight warm variation on lit windows so the façade isn't a flat repeat
-      ctx.fillStyle = lit ? ((x + y) % 3 === 0 ? "#ffd38a" : "#ffb15a") : "#0e1019";
+      // neon circuitry windows: mostly cyan, an occasional Bitcoin-orange cell, on near-black
+      ctx.fillStyle = lit ? ((x * 3 + y) % 4 === 0 ? "#ff9a2e" : "#2ff0ff") : "#070a12";
       ctx.fillRect(pad + x * cw + 1 * S, pad + y * rh + 1 * S, cw - 3 * S, rh - 3 * S);
     }
   }
@@ -44,11 +44,11 @@ function makeSkyTexture(): THREE.Texture {
   c.width = 16; c.height = 256;
   const ctx = c.getContext("2d")!;
   const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0.0, "#0a0d1c");   // zenith
-  g.addColorStop(0.55, "#141026");  // upper sky
-  g.addColorStop(0.78, "#3a2033");  // dusk band
-  g.addColorStop(0.9, "#7a3c15");   // horizon glow (Bitcoin dusk)
-  g.addColorStop(1.0, "#120d16");   // ground haze
+  g.addColorStop(0.0, "#02040a");   // zenith — near black
+  g.addColorStop(0.6, "#04080f");   // upper sky
+  g.addColorStop(0.82, "#06283a");  // cyan datasmog band
+  g.addColorStop(0.92, "#0b3d4a");  // cyan horizon glow
+  g.addColorStop(1.0, "#1a1405");   // thin Bitcoin-amber ground line
   ctx.fillStyle = g; ctx.fillRect(0, 0, 16, 256);
   const t = new THREE.CanvasTexture(c);
   return t;
@@ -140,7 +140,8 @@ export class CityScape {
 
     // --- Grounded Arch gateways overhead (the "Arch" identity; clears all gameplay). ---
     const gateGeo = new THREE.TorusGeometry(5.5, 0.32, 8, 24, Math.PI);
-    const gateMat = new THREE.MeshStandardMaterial({ color: COL.arch, emissive: 0x4a2206, emissiveIntensity: 0.28, roughness: 0.75, metalness: 0.2 });
+    // Block gates: neon rings of light the runner passes through (one per block sealing).
+    const gateMat = new THREE.MeshStandardMaterial({ color: 0x06222c, emissive: COL.arch, emissiveIntensity: 1.5, roughness: 0.4, metalness: 0.3 });
     const legGeo = new THREE.BoxGeometry(0.44, 2.6, 0.44);
     for (let i = 0; i < 3; i++) {
       const g = new THREE.Mesh(gateGeo, gateMat);

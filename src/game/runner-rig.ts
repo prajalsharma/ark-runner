@@ -160,6 +160,11 @@ export class RunnerRig {
     armBuild(this.shR, this.elbowR, 1);
     this.body.add(this.shL, this.shR);
     this.group.add(this.body);
+    // Face the direction of travel (−z): the camera is behind (+z), so it sees SAT's back +
+    // fee-pack, not the face. (Front cues — visor/chest core — are built on +z, so without
+    // this the hero faced the camera and read as "running backwards".) World-space lane
+    // position is unaffected (rotation spins the geometry about the group origin only).
+    this.group.rotation.y = Math.PI;
   }
 
   // Leg segment lengths (thigh, shin) — must match the meshes built in the constructor.
