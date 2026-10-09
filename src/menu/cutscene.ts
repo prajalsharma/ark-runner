@@ -51,19 +51,19 @@ export class Cutscene {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
     return [
       // 0 — THE BITE: close on the runner taking the donut (establish the crime)
-      { dur: 1600, cap: `<div class="c3-line">THE SATOSHI DONUT</div>`,
+      { dur: 1600, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-sub">3 AM · the mempool is quiet</div>`,
         a: { cam: [1.9, 1.95, -2.7], look: [0, 1.6, 0.5], donut: { x: 0.12, y: 1.66, z: 0.5, scale: 1.0 }, bakery: true, drift: 0 },
         b: { cam: [1.5, 2.0, -2.3], look: [0, 1.6, 0.5], donut: { x: 0.12, y: 1.63, z: 0.5, scale: 0.68 }, bakery: true, drift: 0 } },
       // 1 — CAUGHT: the terminal still reads PENDING, the Auditor's eye ignites behind you
       { dur: 1700, cap: `<div class="c3-siren"></div><div class="c3-term">PAYMENT: PENDING</div>`,
         a: { cam: [1.3, 2.1, -2.4], look: [0, 2.2, 1.4], donut: { x: 0.12, y: 1.62, z: 0.5, scale: 0.68 }, drone: drone(0, 10, 5, 1.0), bakery: true, drift: 0 },
         b: { cam: [0.7, 2.7, -3.0], look: [0, 4.3, 3.6], drone: drone(0, 5.3, 4.2, 2.8), bakery: true, drift: 0 } },
-      // 2 — THE WORD: Auditor bears down; "UNSETTLED PASTRY DETECTED."
-      { dur: 1500, cap: `<div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry detected.</div>`,
+      // 2 — THE WORD: Auditor bears down; deadpan compliance menace
+      { dur: 1700, cap: `<div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry. Prepare for pruning.</div><div class="c3-you"><b>YOU:</b> That seems negotiable.</div>`,
         a: { cam: [-1.8, 2.3, 4.6], look: [0, 4.6, 3.2], drone: drone(0, 5.1, 3.4, 2.9), bakery: true, drift: 0 },
         b: { cam: [-1.0, 2.2, 4.0], look: [0, 4.2, 2.6], drone: drone(0.5, 4.6, 2.2, 3.0), bakery: true, drift: 0 } },
       // 3 — BOLT: CUT to a low behind-tracking shot; the Auditor swoops over, speed builds
-      { dur: 1500, cap: `<div class="c3-big" style="font-size:40px">RUN!</div>`,
+      { dur: 1500, cap: `<div class="c3-you"><b>YOU:</b> Confirm THIS.</div><div class="c3-big" style="font-size:40px">RUN!</div>`,
         a: { cam: [0, 2.0, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 8, fov: 56 },
         b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 26, fov: 60 } },
       // 4 — hand-off: settle to the exact gameplay camera, GO
@@ -163,7 +163,7 @@ export class Cutscene {
     const body = sh.title
       ? `<div class="c3-titlewrap"><div class="title stacked"><span class="accent">ARCH</span><span class="word">RUNNER</span></div><div class="c3-sub">RUN THE BLOCK · BREAK THE SCORE</div></div>`
       : sh.hint
-        ? `<div class="c3-hint">←&nbsp;→ MOVE&nbsp;&nbsp;·&nbsp;&nbsp;↑ JUMP&nbsp;&nbsp;·&nbsp;&nbsp;↓ SLIDE<div class="c3-hintsub">swipe on mobile — GO!</div></div>`
+        ? `<div class="c3-hint">OUTRUN THE PRUNE<div class="c3-hintsub">←&nbsp;→ move&nbsp;·&nbsp;↑ jump&nbsp;·&nbsp;↓ slide&nbsp;·&nbsp;swipe on mobile</div></div>`
         : `<div class="c3-caption">${sh.cap}</div>`;
     this.overlay.innerHTML = `${body}<button id="c3-skip" class="c3-skip">SKIP ›</button>`;
     (this.overlay.querySelector("#c3-skip") as HTMLButtonElement).onclick = () => this.finish(this.onSkip);

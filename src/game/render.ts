@@ -541,7 +541,7 @@ export class Renderer {
     const feet = kind === "jump" || kind === "land" || kind === "slide"; // dust at the ground
     const n = kind === "death" ? 20 : kind === "land" ? 14 : kind === "collect" ? 10 : 12;
     const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : kind === "collect" ? 0xffb347
-      : feet ? 0xe6d6b0 : 0xffd54a; // feet kick up warm off-white street dust
+      : feet ? 0x8fe8ff : 0xffd54a; // feet kick up cyan light-sparks off the Tron grid
     const speed = kind === "death" ? 9 : kind === "collect" ? 6 : kind === "slide" ? 8 : 5;
     const oy = feet ? 0.14 : this.lastPlayerY;
     let spawned = 0;

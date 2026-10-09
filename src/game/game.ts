@@ -17,7 +17,7 @@ import { recordRunStats } from "./achievements.ts";
 
 /** For Daily Block, the verified wallet identity the competitive run is recorded against. */
 export type CompetitionCtx = { address: string };
-export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void; onReplay?: () => void };
+export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void; onReplay?: () => void; onReady?: () => void };
 
 type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; flowMult: number; alive: boolean };
 
@@ -38,6 +38,8 @@ export class Game {
   private onEnd?: (sim: RunSim) => void;
   private onMenu?: () => void;
   private onReplay?: () => void;
+  private onReady?: () => void;
+  private firstFrame = false;
   private ended = false;
   private recorded = false;
   private resultShown = false;
@@ -61,6 +63,7 @@ export class Game {
     this.onEnd = opts.onEnd;
     this.onMenu = opts.onMenu;
     this.onReplay = opts.onReplay;
+    this.onReady = opts.onReady;
     this.cap = this.mode === "daily" ? MATCH_SECONDS : 0;
     this.sim = new RunSim(opts.seed ?? this.newSeed(), { cap: this.cap });
     this.prev = this.snapshot();
@@ -121,6 +124,7 @@ export class Game {
     if (this.sim.sliding && this.sim.alive && now - this.lastSlideDust > 110) { this.renderer.burst("slide"); this.lastSlideDust = now; }
     this.audio.setDrive(this.sim.speed, this.sim.blockRun);
     this.renderer.render(this.sim, now);
+    if (!this.firstFrame) { this.firstFrame = true; this.onReady?.(); } // first real frame painted → safe to reveal
     this.hud.update(this.sim);
     if (this.debug) this.hud.setDebug(`${this.sim.debugLine()} · ${this.renderer.stats()}`);
     this.maybeAuditor();

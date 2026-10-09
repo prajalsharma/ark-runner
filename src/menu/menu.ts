@@ -301,8 +301,12 @@ export class Menu {
     const fade = this.fadeVeil();
     fade.style.opacity = "1";
     window.setTimeout(() => {
-      this.launch(mode);
-      window.setTimeout(() => { fade.style.opacity = "0"; }, 600); // let the game render a few frames
+      // Reveal exactly when the game has painted its first frame (onReady) — never a blank
+      // frame. A safety timeout covers a stalled first frame.
+      let revealed = false;
+      const reveal = (): void => { if (revealed) return; revealed = true; fade.style.opacity = "0"; };
+      this.launch(mode, reveal);
+      window.setTimeout(reveal, 1800);
     }, 280);
   }
 
@@ -312,7 +316,7 @@ export class Menu {
     return el;
   }
 
-  private launch(mode: Mode): void {
+  private launch(mode: Mode, onReady?: () => void): void {
     this.attract.stop();
     this.overlay.className = "";
     this.overlay.innerHTML = "";
@@ -323,7 +327,7 @@ export class Menu {
     // black screen when starting Free Run then Daily Block (or restarting via the menu).
     this.canvas = this.freshGameCanvas();
     const comp = mode === "daily" && this.session ? { address: this.session.address } : null;
-    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, onMenu: () => this.returnToMenu(), onReplay: () => this.start(mode) });
+    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, onMenu: () => this.returnToMenu(), onReplay: () => this.start(mode), onReady });
   }
 
   /** Swap the #scene canvas for a fresh one in the same DOM slot (same id/class/styles). */
