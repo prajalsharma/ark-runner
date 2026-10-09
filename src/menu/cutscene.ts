@@ -153,7 +153,7 @@ export class Cutscene {
   private renderCaption(sh: Shot): void {
     this.overlay.className = "cutscene3d";
     const body = sh.title
-      ? `<div class="c3-titlewrap"><div class="title"><span class="accent">ARCH</span> RUNNER</div><div class="c3-sub">RUN THE BLOCK · BREAK THE SCORE</div></div>`
+      ? `<div class="c3-titlewrap"><div class="title stacked"><span class="accent">ARCH</span><span class="word">RUNNER</span></div><div class="c3-sub">RUN THE BLOCK · BREAK THE SCORE</div></div>`
       : sh.hint
         ? `<div class="c3-hint">←&nbsp;→ MOVE&nbsp;&nbsp;·&nbsp;&nbsp;↑ JUMP&nbsp;&nbsp;·&nbsp;&nbsp;↓ SLIDE<div class="c3-hintsub">swipe on mobile — GO!</div></div>`
         : `<div class="c3-caption">${sh.cap}</div>`;

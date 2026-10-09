@@ -32,7 +32,8 @@ export class RunnerRig {
     this.suitMat = new THREE.MeshStandardMaterial({ color, emissive: new THREE.Color(color).multiplyScalar(0.12), emissiveIntensity: 0.6, roughness: 0.55, metalness: 0.15 });
     this.gearMat = new THREE.MeshStandardMaterial({ color: 0x1a1d27, roughness: 0.6, metalness: 0.5 });
     this.skinMat = new THREE.MeshStandardMaterial({ color: 0xe8c9a8, roughness: 0.7 });
-    this.visorMat = new THREE.MeshStandardMaterial({ color: 0x0a0c12, emissive: 0x33e1ff, emissiveIntensity: 1.6, roughness: 0.25, metalness: 0.4 });
+    // Glossy clearcoat so the visor + chest core read like lit screens, not matte plastic.
+    this.visorMat = new THREE.MeshPhysicalMaterial({ color: 0x0a0c12, emissive: 0x33e1ff, emissiveIntensity: 1.6, roughness: 0.25, metalness: 0.4, clearcoat: 1, clearcoatRoughness: 0.12 });
 
     // Helper: a tapered limb (cylinder) with an optional end cap mesh, under a pivot.
     const limb = (parent: THREE.Object3D, rTop: number, rBot: number, len: number, mat: THREE.Material): THREE.Mesh => {

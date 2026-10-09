@@ -45,13 +45,32 @@ export type CineState = {
 function makeBitcoinTexture(): THREE.Texture {
   if (typeof document === "undefined") return new THREE.Texture();
   const c = document.createElement("canvas");
-  c.width = c.height = 128;
+  c.width = c.height = 256;
   const ctx = c.getContext("2d")!;
-  ctx.fillStyle = "#f7931a"; ctx.beginPath(); ctx.arc(64, 64, 62, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#ffffff"; ctx.font = "bold 86px Georgia, serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("₿", 64, 70); // ₿
+  // A struck GOLD coin face: radial gold gradient (bright center → deep rim), a milled
+  // rim ring, and the Bitcoin ₿ embossed in brand orange with a light bevel highlight.
+  const g = ctx.createRadialGradient(108, 100, 20, 128, 128, 128);
+  g.addColorStop(0, "#fff1c0"); g.addColorStop(0.45, "#f6c445"); g.addColorStop(0.8, "#d79a1e"); g.addColorStop(1, "#9c6b12");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(128, 128, 124, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 10; ctx.strokeStyle = "#b9831a"; ctx.beginPath(); ctx.arc(128, 128, 116, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = "#ffe9a0"; ctx.beginPath(); ctx.arc(128, 128, 110, 0, Math.PI * 2); ctx.stroke();
+  ctx.font = "bold 168px Georgia, serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(120,70,0,0.55)"; ctx.fillText("₿", 130, 140);   // engraved shadow
+  ctx.fillStyle = "#f7931a"; ctx.fillText("₿", 128, 136);               // Bitcoin-orange ₿
   const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 8;
   return t;
+}
+
+/** Soft radial blob for a fake contact shadow (black → transparent). */
+function makeShadowTexture(): THREE.Texture {
+  if (typeof document === "undefined") return new THREE.Texture();
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+  g.addColorStop(0, "rgba(0,0,0,0.6)"); g.addColorStop(0.55, "rgba(0,0,0,0.32)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
 }
 
 /** The payment terminal screen: "PAYMENT / PENDING" in amber on dark — the whole joke. */
@@ -94,6 +113,7 @@ export class Renderer {
   private stumbleT = 0;        // >0 while the runner trips & recovers from a close call
   private donut: THREE.Group;
   private bakery!: THREE.Group;
+  private heroShadow!: THREE.Mesh;
   private obstacles!: ObstacleKit;
   private enPool: THREE.Mesh[] = [];
   private readonly TICKS = 40;
@@ -293,6 +313,15 @@ export class Renderer {
     this.bakery.visible = false;
     this.scene.add(this.bakery);
 
+    // Soft contact shadow under the hero — grounds it, and tracks the lane on a jump.
+    this.heroShadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.5, 1.5),
+      new THREE.MeshBasicMaterial({ map: makeShadowTexture(), transparent: true, opacity: 0.5, depthWrite: false }),
+    );
+    this.heroShadow.rotation.x = -Math.PI / 2;
+    this.heroShadow.position.set(0, 0.04, 0);
+    this.scene.add(this.heroShadow);
+
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
     this.rig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
@@ -305,8 +334,10 @@ export class Renderer {
     // Bitcoin coins: orange disc with a ₿ face (texture on the caps), facing the camera.
     const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.08, 24);
     const btcTex = makeBitcoinTexture();
-    const coinSide = new THREE.MeshStandardMaterial({ color: 0xc9790f, emissive: 0xf7931a, emissiveIntensity: 0.5, roughness: 0.4, metalness: 0.55 });
-    const coinFace = new THREE.MeshStandardMaterial({ map: btcTex, emissiveMap: btcTex, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.4, metalness: 0.3 });
+    // Genuine struck gold: high metalness + low roughness so the env map gives real gold
+    // reflections (not flat orange). A little emissive so coins still pop in the dark/bloom.
+    const coinSide = new THREE.MeshStandardMaterial({ color: 0xe7b63a, metalness: 0.95, roughness: 0.28, emissive: 0x3a2600, emissiveIntensity: 0.3 });
+    const coinFace = new THREE.MeshStandardMaterial({ map: btcTex, metalness: 0.9, roughness: 0.3, emissive: 0xf7931a, emissiveMap: btcTex, emissiveIntensity: 0.35 });
     for (let i = 0; i < 48; i++) {
       const m = new THREE.Mesh(coinGeo, [coinSide, coinFace, coinFace]);
       m.rotation.x = Math.PI / 2; // caps face the camera
@@ -444,6 +475,7 @@ export class Renderer {
       this.donut.rotation.set(0.35, nowMs / 700, 0);
     } else this.donut.visible = false;
     this.bakery.visible = !!st.bakery;
+    this.heroShadow.visible = false; // no gameplay contact shadow during the cutscene
     this.cam.fov = st.fov ?? 52;
     const sk = st.shake ?? 0;
     const sx = sk ? (Math.random() - 0.5) * sk : 0;
@@ -542,6 +574,12 @@ export class Renderer {
     }
     this.lastPlayerX = sim.laneX;
     this.lastPlayerY = (sim.sliding ? 0.5 : 0.9) + sim.y;
+    // Contact shadow: under the runner's lane, shrinking + fading as it jumps higher.
+    const jumpF = Math.min(1, Math.max(0, sim.y / 2));
+    this.heroShadow.visible = true;
+    this.heroShadow.position.set(sim.laneX, 0.04, 0);
+    this.heroShadow.scale.setScalar(1 - jumpF * 0.45);
+    (this.heroShadow.material as THREE.MeshBasicMaterial).opacity = 0.5 * (1 - jumpF * 0.6);
 
     // FOV ramps with speed (and a kick during Block Run) — the sense of pace.
     const speedFrac = Math.min(1, Math.max(0, (sim.speed - START_SPEED) / (MAX_SPEED * BLOCK_SPEED_MULT - START_SPEED)));

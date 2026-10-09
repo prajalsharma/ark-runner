@@ -267,11 +267,17 @@ body {
 /* Title / start screen */
 .title { font-size: 44px; font-weight: 800; letter-spacing: 6px; }
 .title .accent { color: #ff7a1a; }
+/* Vertical logo lockup: ARCH stacked over RUNNER. */
+.title.stacked { display: flex; flex-direction: column; align-items: center; line-height: 0.9; letter-spacing: 10px; }
+.title.stacked .accent, .title.stacked .word { display: block; }
+.title.stacked .word { text-indent: 10px; } /* optical-center the extra letter-spacing */
 
 /* ---- Layering (game canvas < attract < HUD bits < overlay) ---- */
 #scene { z-index: 0; }
 #attract { position: absolute; inset: 0; width: 100%; height: 100%; display: none; z-index: 1; }
 #attract.show { display: block; }
+#vignette { position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: radial-gradient(130% 100% at 50% 42%, transparent 55%, rgba(0,0,0,0.5) 100%); }
 #hud { z-index: 3; }
 #coach { z-index: 3; }
 #coins { z-index: 4; }

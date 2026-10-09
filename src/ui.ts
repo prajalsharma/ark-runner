@@ -58,6 +58,10 @@ export class HUD {
     this.flashEl = document.createElement("div");
     this.flashEl.id = "impactflash";
     app.appendChild(this.flashEl);
+    // Subtle vignette over the 3D (below the HUD/menu DOM) — a finishing frame for the scene.
+    if (!document.getElementById("vignette")) {
+      const vg = document.createElement("div"); vg.id = "vignette"; app.appendChild(vg);
+    }
   }
 
   /** A quick red impact vignette on a fatal hit — reads as a controlled, legible death. */

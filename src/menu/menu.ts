@@ -66,7 +66,7 @@ export class Menu {
     this.overlay.className = "show home";
     this.overlay.innerHTML = `
       <div class="hero">
-        <div class="title"><span class="accent">ARCH</span> RUNNER</div>
+        <div class="title stacked"><span class="accent">ARCH</span><span class="word">RUNNER</span></div>
         <div class="tagline">RUN THE BLOCK · BREAK THE SCORE</div>
         <div class="playbtns">
           <button id="daily" class="btn">DAILY BLOCK #${n}${connected ? "" : " 🔒"}</button>
