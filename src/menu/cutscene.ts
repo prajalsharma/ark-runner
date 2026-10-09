@@ -8,6 +8,21 @@
  */
 import type { Attract } from "./attract.ts";
 import type { CineState } from "../game/render.ts";
+import { soundOn } from "../game/settings.ts";
+
+/** Free, no-dependency voiceover via the browser's Web Speech API. The Auditor gets a low,
+ *  slow robotic read; SAT a quicker higher one. Respects the sound setting; silent if the
+ *  engine/voices are unavailable (e.g. some mobile browsers) — captions always carry the line. */
+function speakLine(text: string, role: "auditor" | "you"): void {
+  try {
+    if (!soundOn() || typeof speechSynthesis === "undefined") return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (role === "auditor") { u.pitch = 0.25; u.rate = 0.88; u.volume = 0.95; }
+    else { u.pitch = 1.15; u.rate = 1.06; u.volume = 0.9; }
+    speechSynthesis.speak(u);
+  } catch { /* TTS unavailable — captions still show */ }
+}
 
 type V3 = [number, number, number];
 type Drone = { x: number; y: number; z: number; eye: number };
@@ -20,7 +35,7 @@ type Key = {
   shake?: number;  // camera shake (near-catch impact)
   fov?: number;
 };
-type Shot = { dur: number; cap: string; a: Key; b: Key; title?: boolean; hint?: boolean };
+type Shot = { dur: number; cap: string; a: Key; b: Key; title?: boolean; hint?: boolean; vo?: string; voRole?: "auditor" | "you" };
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 const lerp3 = (a: V3, b: V3, t: number): V3 => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
@@ -44,30 +59,43 @@ export class Cutscene {
     return this.variant === "quick" ? this.quickShots() : this.storyShots();
   }
 
-  /** The per-run cold-open (~7s, skippable, mostly VISUAL): bite the donut at the bakery →
-   *  the terminal reads PENDING, the Auditor ignites behind you → you bolt, it swoops →
-   *  hand-off. Enough beats to read the stakes without a wall of text (Subway/Temple style). */
+  /** The per-run cold-open (~11s, skippable, VOICED): establish the Mempool → bite the donut
+   *  → PENDING + the Auditor ignites → "prepare for pruning" / "negotiable" → bolt → hand-off.
+   *  SAT faces −z, so the front (bite/reveal) cameras sit on the −z side looking back. */
   private quickShots(): Shot[] {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
+    // Held at the mouth (−z front), small enough to read as a snack, not a ring over the head.
+    // The prop's base torus is ~1.6u across, so scale ~0.3 → a ~0.5u handheld donut.
+    const bite = (s: number): Donut => ({ x: 0.17, y: 1.54, z: -0.42, scale: s });
     return [
-      // 0 — THE BITE: close on the runner taking the donut (establish the crime)
-      { dur: 1600, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-sub">3 AM · the mempool is quiet</div>`,
-        a: { cam: [1.9, 1.95, -2.7], look: [0, 1.6, 0.5], donut: { x: 0.12, y: 1.66, z: 0.5, scale: 1.0 }, bakery: true, drift: 0 },
-        b: { cam: [1.5, 2.0, -2.3], look: [0, 1.6, 0.5], donut: { x: 0.12, y: 1.63, z: 0.5, scale: 0.68 }, bakery: true, drift: 0 } },
-      // 1 — CAUGHT: the terminal still reads PENDING, the Auditor's eye ignites behind you
+      // 0 — ESTABLISH: a wide push through the neon Mempool
+      { dur: 1900, cap: `<div class="c3-big">THE MEMPOOL</div><div class="c3-sub">3 AM · everything is pending</div>`,
+        a: { cam: [7, 10, 15], look: [0, 2.6, -6], bakery: true, drift: 1.5 }, b: { cam: [2.8, 3.6, 5], look: [0, 1.9, -3], bakery: true, drift: 1.5 } },
+      // 1 — THE BITE: close on SAT taking the Satoshi donut (the crime)
+      { dur: 1800, cap: `<div class="c3-line">THE SATOSHI DONUT</div>`,
+        a: { cam: [1.9, 1.9, -3.3], look: [0, 1.55, -0.4], donut: bite(0.33), bakery: true, drift: 0 },
+        b: { cam: [1.5, 1.95, -2.9], look: [0, 1.55, -0.4], donut: bite(0.22), bakery: true, drift: 0 } },
+      // 2 — CAUGHT: terminal still PENDING; the Auditor's eye ignites, descending behind
       { dur: 1700, cap: `<div class="c3-siren"></div><div class="c3-term">PAYMENT: PENDING</div>`,
-        a: { cam: [1.3, 2.1, -2.4], look: [0, 2.2, 1.4], donut: { x: 0.12, y: 1.62, z: 0.5, scale: 0.68 }, drone: drone(0, 10, 5, 1.0), bakery: true, drift: 0 },
-        b: { cam: [0.7, 2.7, -3.0], look: [0, 4.3, 3.6], drone: drone(0, 5.3, 4.2, 2.8), bakery: true, drift: 0 } },
-      // 2 — THE WORD: Auditor bears down; deadpan compliance menace
-      { dur: 1700, cap: `<div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry. Prepare for pruning.</div><div class="c3-you"><b>YOU:</b> That seems negotiable.</div>`,
-        a: { cam: [-1.8, 2.3, 4.6], look: [0, 4.6, 3.2], drone: drone(0, 5.1, 3.4, 2.9), bakery: true, drift: 0 },
-        b: { cam: [-1.0, 2.2, 4.0], look: [0, 4.2, 2.6], drone: drone(0.5, 4.6, 2.2, 3.0), bakery: true, drift: 0 } },
-      // 3 — BOLT: CUT to a low behind-tracking shot; the Auditor swoops over, speed builds
-      { dur: 1500, cap: `<div class="c3-you"><b>YOU:</b> Confirm THIS.</div><div class="c3-big" style="font-size:40px">RUN!</div>`,
+        a: { cam: [1.4, 2.0, -3.0], look: [0, 2.4, 1.2], donut: bite(0.22), drone: drone(0, 10, 4.5, 1.0), bakery: true, drift: 0 },
+        b: { cam: [1.0, 2.6, -2.6], look: [0, 4.0, 2.4], drone: drone(0, 5.6, 3.8, 2.7), bakery: true, drift: 0 } },
+      // 3 — THE WORD: the Auditor bears down (voiced, deadpan)
+      { dur: 1900, cap: `<div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry. Prepare for pruning.</div>`,
+        vo: "Unsettled pastry. Prepare for pruning.", voRole: "auditor",
+        a: { cam: [-1.9, 2.4, -1.6], look: [0, 3.8, 2.2], drone: drone(0, 5.3, 2.6, 2.9), bakery: true, drift: 0 },
+        b: { cam: [-1.3, 2.3, -1.2], look: [0, 3.4, 1.8], drone: drone(0.4, 4.7, 1.8, 3.0), bakery: true, drift: 0 } },
+      // 4 — THE REACTION: SAT, cheeks full (voiced)
+      { dur: 1500, cap: `<div class="c3-you"><b>YOU:</b> That seems negotiable.</div>`,
+        vo: "That seems negotiable.", voRole: "you",
+        a: { cam: [1.0, 1.85, -2.6], look: [0, 1.55, -0.3], drone: drone(0.2, 4.6, 2.0, 3.0), bakery: true, drift: 0 },
+        b: { cam: [0.9, 1.86, -2.4], look: [0, 1.55, -0.3], drone: drone(-0.2, 4.5, 1.8, 3.0), bakery: true, drift: 0 } },
+      // 5 — BOLT: CUT behind; SAT flees down the street, the Auditor swoops over (voiced)
+      { dur: 1700, cap: `<div class="c3-big" style="font-size:40px">RUN!</div>`,
+        vo: "Confirm this.", voRole: "you",
         a: { cam: [0, 2.0, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 8, fov: 56 },
         b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 26, fov: 60 } },
-      // 4 — hand-off: settle to the exact gameplay camera, GO
-      { dur: 1200, cap: ``, hint: true,
+      // 6 — hand-off: settle to the exact gameplay camera, GO
+      { dur: 1300, cap: ``, hint: true,
         a: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 28, fov: 60 },
         b: { cam: PLAY_CAM, look: PLAY_LOOK, drone: drone(0, 9, -20, 1.7), drift: 32, fov: 58 } },
     ];
@@ -167,10 +195,12 @@ export class Cutscene {
         : `<div class="c3-caption">${sh.cap}</div>`;
     this.overlay.innerHTML = `${body}<button id="c3-skip" class="c3-skip">SKIP ›</button>`;
     (this.overlay.querySelector("#c3-skip") as HTMLButtonElement).onclick = () => this.finish(this.onSkip);
+    if (sh.vo) speakLine(sh.vo, sh.voRole ?? "you"); // free TTS voiceover of the line
   }
 
   private finish(cb: () => void): void {
     cancelAnimationFrame(this.raf);
+    try { if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); } catch { /* ignore */ }
     this.overlay.className = "";
     this.overlay.innerHTML = "";
     cb();
