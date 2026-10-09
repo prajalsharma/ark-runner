@@ -1,0 +1,19 @@
+[package]
+name = "ark-runner-escrow"
+version = "0.1.0"
+edition = "2021"
+description = "ARK RUNNER — multi-player APL-token competition escrow with rank-based settlement on Arch Network (testnet v0.12.0)."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+# Pinned to the v0.12.0 node line (post chain-reset). These match arch-kit 0.1.8.
+arch_program = "=0.12.0"
+apl-token = { version = "=0.12.0", features = ["no-entrypoint"] }
+apl-associated-token-account = { version = "=0.12.0", features = ["no-entrypoint"] }
+borsh = { version = "1.5.1", features = ["derive"] }
+
+[features]
+# Host builds (tests/examples/harness) must exclude the SBF entrypoint allocator.
+no-entrypoint = []

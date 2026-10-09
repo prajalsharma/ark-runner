@@ -19,6 +19,7 @@ import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts"
 import { soundOn, setSound, reducedMotion, setReducedMotion, quality, setQuality } from "../game/settings.ts";
 import { getNetwork, setNetwork, type NetworkMode } from "../chain/network.ts";
 import { fetchTestnetStatus } from "../chain/rpc.ts";
+import { ARCH_DEPLOYMENT, shortId } from "../chain/deployed.ts";
 import { RunnerLedger } from "../economy/ledger.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
@@ -144,7 +145,7 @@ export class Menu {
         </div>
         <div class="entrybox">
           <div class="entryrow"><span class="entrylabel">ENTRY</span><span class="entryval">FREE · <span class="demotag">DEMO</span></span></div>
-          <div class="entrynote">On-chain entry &amp; prizes are not live yet (Arch competition program pending deployment). Your run is saved to <b>your wallet's</b> competitive history and marked <b>provisional</b> until the server validator is live. No real funds move.</div>
+          <div class="entrynote">The escrow program is <b>deployed &amp; E2E-verified on Arch testnet</b> (see ARCH NET), but in-game entries/prizes still run in <b>DEMO</b> until the settlement service is live. Your run is saved to <b>your wallet's</b> competitive history, provisional until the server validator runs. No real funds move.</div>
         </div>
         <button id="enter" class="btn">ENTER THE DAILY BLOCK</button>
         <button id="back" class="btn ghost">BACK</button>
@@ -370,7 +371,14 @@ export class Menu {
           <div><span class="pv" id="pv-hash">…</span><span class="pl">BEST BLOCK</span></div>
           <div><span class="pv" id="pv-rpc">…</span><span class="pl">RPC LATENCY</span></div>
         </div>
-        <div class="lbnote">Real data from <code>rpc.testnet.arch.network</code>. The Daily Block competition is <b>entry-funded</b> (70/20/10, 5% fee, FREE/BRONZE/SILVER/GOLD tiers, no pay-to-win); entries &amp; prizes settle here once the competition program is deployed. No yield, no fake balances.</div>`;
+        <div class="plabel">COMPETITION PROGRAM · ✓ DEPLOYED</div>
+        <div class="profgrid">
+          <div><span class="pv">${shortId(ARCH_DEPLOYMENT.programId)}</span><span class="pl">PROGRAM ID</span></div>
+          <div><span class="pv">${shortId(ARCH_DEPLOYMENT.entryMint)}</span><span class="pl">ENTRY TOKEN (APL)</span></div>
+          <div><span class="pv">${ARCH_DEPLOYMENT.split}</span><span class="pl">PRIZE SPLIT</span></div>
+          <div><span class="pv">E2E ✓</span><span class="pl">ON-CHAIN VERIFIED</span></div>
+        </div>
+        <div class="lbnote">The escrow/competition program is <b>deployed and E2E-verified on Arch testnet</b> — a real deposit→settle match ran on-chain with exact 70/20/10 payouts and the double-settle guard held (full tx list in <code>docs/DEPLOYMENT_RESULT.md</code>). Entry-funded, 0% fee, no yield, no fake balances. In-game entries/prizes still run in <b>DEMO</b> until the settlement service (which holds the authority key server-side — never in your browser) is live.</div>`;
     this.modal("ARCH NETWORK", body);
     this.overlay.querySelectorAll<HTMLButtonElement>(".netbtn").forEach((b) => {
       b.onclick = () => { setNetwork(b.dataset.net as NetworkMode); this.showEconomy(); };
