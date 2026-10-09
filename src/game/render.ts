@@ -11,6 +11,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { RunSim } from "./sim.ts";
 import { RunnerRig } from "./runner-rig.ts";
+import { ChaserRig } from "./chaser.ts";
 import { CityScape } from "./cityscape.ts";
 import { reducedMotion, quality } from "./settings.ts";
 import { LANE_WIDTH, OBSTACLE_H, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
@@ -56,7 +57,9 @@ export class Renderer {
   private gl: THREE.WebGLRenderer;
   private rig: RunnerRig;
   private city: CityScape;
-  private auditor: THREE.Group;
+  private chaser: ChaserRig;
+  private menace = 0;          // eased 0..1 how hard the Auditor is bearing down
+  private lastNearMiss = 0;    // to detect a fresh near-miss → surge
   private donut: THREE.Group;
   private obPool: THREE.Mesh[] = [];
   private enPool: THREE.Mesh[] = [];
@@ -196,14 +199,10 @@ export class Renderer {
     // The city around the corridor (depth + atmosphere). Fewer towers on low quality.
     this.city = new CityScape(this.scene, this.lowQ ? 9 : 18);
 
-    // THE AUDITOR — a surveillance drone looming in the distance ahead (context, not a hazard).
-    this.auditor = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(1.25, 16, 12), new THREE.MeshStandardMaterial({ color: 0x15161e, roughness: 0.5, metalness: 0.5 }));
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5a00, emissiveIntensity: 1.4 }));
-    eye.position.set(0, 0, 1.0);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.08, 6, 20), new THREE.MeshStandardMaterial({ color: 0x3a0a00, emissive: 0xff3b00, emissiveIntensity: 0.5 }));
-    this.auditor.add(body, eye, ring);
-    this.scene.add(this.auditor);
+    // THE AUDITOR — the antagonist. Looms above-and-behind the runner and bears down,
+    // surging on mistakes. (Also drives the opening cutscene's confrontation.)
+    this.chaser = new ChaserRig();
+    this.scene.add(this.chaser.group);
 
     // The Satoshi donut (cutscene prop) — glazed orange torus with sprinkles. Hidden in play.
     this.donut = new THREE.Group();
@@ -306,12 +305,15 @@ export class Renderer {
     for (const p of this.parts) p.m.visible = false;
     for (const s of this.streaks) s.visible = false;
     if (st.drone) {
-      this.auditor.visible = true;
-      this.auditor.position.set(st.drone.x, st.drone.y, st.drone.z);
-      this.auditor.children[2]!.rotation.z = nowMs / 280;
-      const em = (this.auditor.children[1] as THREE.Mesh).material as THREE.MeshStandardMaterial;
-      em.emissiveIntensity = st.drone.eye; em.emissive.setHex(st.drone.eye >= 2 ? 0xff2200 : 0xff5a00);
-    } else this.auditor.visible = false;
+      this.chaser.setVisible(true);
+      // Face the viewer so the scanner eye reads during the confrontation; pitch down a
+      // little once it has descended to the runner's level.
+      this.chaser.group.position.set(st.drone.x, st.drone.y, st.drone.z);
+      this.chaser.group.rotation.set(0.2 + Math.max(0, (10 - st.drone.y) * 0.03), Math.PI, 0);
+      this.chaser.group.scale.setScalar(1);
+      this.chaser.update(nowMs, 0.8);
+      this.chaser.setEye(st.drone.eye);
+    } else this.chaser.setVisible(false);
     if (st.donut) {
       this.donut.visible = true;
       this.donut.position.set(st.donut.x, st.donut.y, st.donut.z);
@@ -421,15 +423,26 @@ export class Renderer {
     // City scrolls past (recycled).
     this.city.update(d);
 
-    // The Auditor drone looms ~44 units ahead (you never catch it), bobbing + scanning;
-    // its eye flares during Block Run / Hyper Flow. Eye faces the camera (local +z).
-    this.auditor.visible = true;
+    // THE AUDITOR chases from above-and-behind. Menace rises on a fresh near-miss or when
+    // the runner is slow, and bleeds off as they speed up / flow — so it surges to your
+    // heels when you scrape past danger and falls back when you're clean. Honest tension,
+    // driven only from sim state (no fake catch — it never actually ends the run).
+    if (sim.nearMisses > this.lastNearMiss) { this.menace = Math.min(1, this.menace + 0.5); this.lastNearMiss = sim.nearMisses; }
+    // Cruising menace stays low (it hangs back, small + high); a near-miss spikes it so it
+    // SWOOPS down to your heels, then decays as you pull away. Block/Hyper keeps it engaged.
+    const menaceTarget = Math.min(0.55, 0.06 + (1 - speedFrac) * 0.22 + (sim.flow < 1 ? 0.08 : 0));
+    this.menace += ((Math.max(menaceTarget, this.menace * 0.985) - this.menace)) * 0.06;
+    const men = (sim.hyperFlow || sim.blockRun) ? Math.max(this.menace, 0.45) : this.menace;
+    this.chaser.setVisible(true);
     this.donut.visible = false; // donut is a cutscene-only prop
-    this.auditor.position.set(Math.sin(nowMs / 1800) * 2.4, 8 + Math.sin(nowMs / 900) * 0.5, -44);
-    this.auditor.rotation.set(0, 0, 0);
-    this.auditor.children[2]!.rotation.z = nowMs / 500; // scanning ring
-    const eyeMat = (this.auditor.children[1] as THREE.Mesh).material as THREE.MeshStandardMaterial;
-    eyeMat.emissiveIntensity = 1.2 + ((sim.hyperFlow || sim.blockRun) ? 1.0 : 0) + Math.sin(nowMs / 200) * 0.3;
+    // Hangs high + small when cruising (never occludes the lane); dives bigger/closer as it
+    // bears down, claws reaching for the runner.
+    const cz = THREE.MathUtils.lerp(4.4, 3.7, men);
+    const cy = THREE.MathUtils.lerp(7.2, 4.8, men);
+    this.chaser.group.position.set(sim.laneX * 0.4 + Math.sin(nowMs / 1100) * 0.5, cy + Math.sin(nowMs / 700) * 0.18, cz);
+    this.chaser.group.rotation.set(0.6 + men * 0.3, Math.sin(nowMs / 1600) * 0.12, 0);
+    this.chaser.group.scale.setScalar(THREE.MathUtils.lerp(0.44, 0.8, men));
+    this.chaser.update(nowMs, men);
 
     // Floor ticks scroll.
     const spacing = 4;
