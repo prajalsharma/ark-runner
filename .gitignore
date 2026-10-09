@@ -10,3 +10,6 @@ dist/
 coverage/
 
 qa-shots/
+
+# agent worktrees / local tooling
+.claude/
