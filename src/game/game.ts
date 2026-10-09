@@ -119,7 +119,7 @@ export class Game {
     this.audio.setDrive(this.sim.speed, this.sim.blockRun);
     this.renderer.render(this.sim, now);
     this.hud.update(this.sim);
-    if (this.debug) this.hud.setDebug(this.sim.debugLine());
+    if (this.debug) this.hud.setDebug(`${this.sim.debugLine()} · ${this.renderer.stats()}`);
     this.maybeAuditor();
     (window as unknown as { __ARCH_SIM?: RunSim }).__ARCH_SIM = this.sim; // read-only hook for automated QA
 

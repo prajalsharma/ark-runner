@@ -5,6 +5,7 @@
  * recolours the world and streaks past, Hyper Flow intensifies the glow.
  */
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
@@ -111,6 +112,7 @@ export class Renderer {
   private bloom: UnrealBloomPass | null = null;
   private contextLost = false;
   private key!: THREE.DirectionalLight;
+  private envRT: THREE.WebGLRenderTarget | null = null;
 
   private camX = 0;          // eased camera x (shake is added on top)
   private shake = 0;         // decays every frame
@@ -139,6 +141,7 @@ export class Renderer {
 
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.gl.setClearColor(COL.bg);
+    this.gl.info.autoReset = false; // reset once per frame so stats() sums ALL composer passes
     // Cinematic colour + tone pipeline (AAA pass): sRGB out, Neutral (Khronos PBR Neutral)
     // tone mapping — rolls off bright emissive without the ACES orange→salmon desaturation,
     // so true Bitcoin orange (#F7931A) still reads as Bitcoin orange on screen.
@@ -175,6 +178,15 @@ export class Renderer {
     const practical = new THREE.PointLight(0xff7a1a, 0.6, 40);
     practical.position.set(0, 3, 2);
     this.scene.add(practical);
+
+    // IBL environment: without a scene.environment, every authored metalness (coins, the
+    // Auditor hull, gear) reflects nothing and reads flat gray. A neutral room env gives
+    // real specular reflections. Kept subtle so it doesn't wash out the dark dusk look.
+    const pmrem = new THREE.PMREMGenerator(this.gl);
+    this.envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    this.scene.environment = this.envRT.texture;
+    this.scene.environmentIntensity = 0.45;
+    pmrem.dispose();
 
     // Corridor floor + lane dividers.
     const floor = new THREE.Mesh(
@@ -339,12 +351,19 @@ export class Renderer {
   /** Render through the post chain when present, else straight to screen. */
   private renderFrame(): void {
     if (this.contextLost) return; // GPU context gone; wait for restore (no black-on-crash)
+    this.gl.info.reset(); // start-of-frame reset → stats() reflects the whole frame's draws
     if (this.composer && !this.perf) this.composer.render();
     else this.gl.render(this.scene, this.cam);
   }
 
   /** Runtime perf downgrade (set by the loop when frames are consistently slow). */
   setPerfMode(on: boolean): void { this.perf = on; }
+
+  /** Render diagnostics for the F3 overlay (draw calls + triangles + texture/geo counts). */
+  stats(): string {
+    const r = this.gl.info.render, m = this.gl.info.memory;
+    return `draws ${r.calls} · tris ${(r.triangles / 1000).toFixed(1)}k · geo ${m.geometries} · tex ${m.textures}`;
+  }
 
   /** Cinematic death camera: pulls up/back and orbits the fallen runner. */
   startDeathCam(): void { this.deathT = 0; }
@@ -439,6 +458,7 @@ export class Renderer {
   dispose(): void {
     window.removeEventListener("resize", this.onWindowResize);
     this.composer?.dispose?.();
+    this.envRT?.dispose();
     this.gl.dispose();
     this.gl.forceContextLoss();
   }
