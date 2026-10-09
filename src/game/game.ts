@@ -111,6 +111,7 @@ export class Game {
     this.hud.update(this.sim);
     if (this.debug) this.hud.setDebug(this.sim.debugLine());
     this.maybeAuditor();
+    (window as unknown as { __ARCH_SIM?: RunSim }).__ARCH_SIM = this.sim; // read-only hook for automated QA
 
     // On death: play the cinematic death camera, then show the recap a beat later.
     if (this.sim.phase === "ended" && !this.ended) {
