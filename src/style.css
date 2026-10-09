@@ -207,12 +207,20 @@ body {
   display: flex; gap: 8px; z-index: 5;
 }
 .sysbtn {
-  width: 40px; height: 40px; font-size: 18px; cursor: pointer;
-  color: #f4f1e6; background: rgba(10, 12, 20, 0.55);
-  border: 1px solid rgba(255, 122, 26, 0.3); border-radius: 10px;
-  backdrop-filter: blur(6px);
+  width: 46px; height: 46px; font-size: 18px; font-weight: 800; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #ffb24d; background: rgba(12, 14, 22, 0.82);
+  border: 1.5px solid rgba(255, 122, 26, 0.6); border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.5); backdrop-filter: blur(8px);
 }
+.sysbtn:hover { background: rgba(255, 122, 26, 0.18); }
 .sysbtn:active { transform: translateY(1px); }
+
+/* Custom share card (not the native OS sheet) */
+#sharepop { position: absolute; inset: 0; z-index: 12; display: none; align-items: center; justify-content: center; background: rgba(7,8,12,0.78); }
+#sharepop.show { display: flex; }
+.sharecard { text-align: center; padding: 24px; width: 90%; max-width: 440px; background: rgba(12,14,22,0.97); border: 1px solid rgba(255,122,26,0.4); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.sharetext { text-align: left; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.6; color: #e9ecf5; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px; margin: 12px 0; }
 
 /* Title / start screen */
 .title { font-size: 44px; font-weight: 800; letter-spacing: 6px; }

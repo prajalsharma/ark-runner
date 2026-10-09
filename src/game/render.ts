@@ -348,10 +348,13 @@ export class Renderer {
     for (const e of v.energy) {
       if (ei >= this.enPool.length) break;
       const m = this.enPool[ei++]!;
-      const bob = Math.sin(nowMs / 280 + e.id) * 0.08; // gentle float
-      m.position.set(e.lane * LANE_WIDTH, 0.65 + e.y + bob, -(e.z - d));
-      m.rotation.set(Math.PI / 2, 0, nowMs / 450); // faster, livelier spin; ₿ facing camera
-      m.visible = true;
+      const lz = -(e.z - d);
+      const passed = lz > 0.6; // behind the player = a MISS: it tumbles away instead of just vanishing
+      const bob = Math.sin(nowMs / 280 + e.id) * 0.08;
+      m.position.set(e.lane * LANE_WIDTH, 0.65 + e.y + bob + (passed ? (lz * 0.12) : 0), lz);
+      if (passed) m.rotation.set(Math.PI / 2 + lz * 0.25, nowMs / 300, nowMs / 450); // tumble as it flies past
+      else m.rotation.set(Math.PI / 2, 0, nowMs / 450); // upright, ₿ facing camera
+      m.visible = lz < 11; // cull only once behind the camera
     }
     for (; ei < this.enPool.length; ei++) this.enPool[ei]!.visible = false;
 

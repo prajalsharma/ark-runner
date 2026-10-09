@@ -28,6 +28,7 @@ export class HUD {
   private coinsEl: HTMLElement;
   private coinsNumEl: HTMLElement;
   private debugEl: HTMLElement;
+  private shareEl: HTMLElement;
   private toastTimer = 0;
   private coachTimer = 0;
   private lastCoins = 0;
@@ -48,6 +49,28 @@ export class HUD {
     this.debugEl = document.createElement("div");
     this.debugEl.id = "debug";
     app.appendChild(this.debugEl);
+    this.shareEl = document.createElement("div");
+    this.shareEl.id = "sharepop";
+    app.appendChild(this.shareEl);
+  }
+
+  /** Custom in-app share card (never the native OS share sheet). */
+  showShare(text: string, url: string): void {
+    this.shareEl.innerHTML = `
+      <div class="sharecard">
+        <div class="eyebrow">SHARE YOUR RUN</div>
+        <pre class="sharetext">${text}\n${url}</pre>
+        <button id="sh-copy" class="btn">COPY</button>
+        <div class="row">
+          <button id="sh-x" class="btn ghost">POST TO X</button>
+          <button id="sh-close" class="btn ghost">CLOSE</button>
+        </div>
+      </div>`;
+    this.shareEl.classList.add("show");
+    const q = (s: string) => this.shareEl.querySelector(s) as HTMLButtonElement;
+    q("#sh-copy").onclick = () => { void navigator.clipboard?.writeText(`${text}\n${url}`).then(() => this.toast("COPIED", "perfect")).catch(() => undefined); };
+    q("#sh-x").onclick = () => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank", "noopener"); };
+    q("#sh-close").onclick = () => this.shareEl.classList.remove("show");
   }
 
   /** Dev-only F3 overlay. */

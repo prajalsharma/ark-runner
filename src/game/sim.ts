@@ -261,9 +261,11 @@ export class RunSim {
     const z = this.distance;
     const obstacles: Obstacle[] = [];
     const energy: Energy[] = [];
+    // Window extends well BEHIND the player (z-16) so passed obstacles and UNCOLLECTED
+    // coins visibly fly past/behind instead of popping out at the player plane.
     for (const seg of this.segs.values()) {
-      for (const o of seg.obstacles) if (o.z > z - 4 && o.z < z + 60) obstacles.push(o);
-      for (const e of seg.energy) if (!this.resolved.has(e.id) && e.z > z - 2 && e.z < z + 60) energy.push(e);
+      for (const o of seg.obstacles) if (o.z > z - 16 && o.z < z + 60) obstacles.push(o);
+      for (const e of seg.energy) if (!this.resolved.has(e.id) && e.z > z - 16 && e.z < z + 60) energy.push(e);
     }
     return { obstacles, energy };
   }

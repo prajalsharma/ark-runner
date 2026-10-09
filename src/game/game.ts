@@ -27,6 +27,7 @@ export class Game {
   private detach: () => void;
   private detachKeys: () => void;
   private sysbar: HTMLElement;
+  private pauseBtn: HTMLButtonElement | null = null;
   private acc = 0;
   private lastT = 0;
   private raf = 0;
@@ -171,10 +172,8 @@ export class Game {
   private share(): void {
     const s = this.sim;
     const head = this.mode === "daily" ? `ARCH RUNNER · DAILY BLOCK #${dailyNumber(this.dateKey)}` : "ARCH RUNNER · FREE RUN";
-    const text = `${head}\nSCORE ${Math.floor(s.score).toLocaleString()}\n${(s.distance / 100).toFixed(2)} KM · FLOW ×${s.maxFlowMult.toFixed(1)} · ${s.blockRuns} BLOCK · ${s.flips} FLIP\nRun it: ${location.href}`;
-    const nav = navigator as Navigator & { share?: (d: { text: string }) => Promise<void> };
-    if (typeof nav.share === "function") { void nav.share({ text }).catch(() => undefined); }
-    else { void navigator.clipboard?.writeText(text).then(() => this.hud.toast("COPIED", "perfect")).catch(() => undefined); }
+    const text = `${head}\n🏆 SCORE ${Math.floor(s.score).toLocaleString()} · ${(s.distance / 100).toFixed(2)} KM\n⚡ FLOW ×${s.maxFlowMult.toFixed(1)} · ${s.blockRuns} BLOCK RUN · ${s.flips} ARCH FLIP · ₿ ${s.collected}\nBeat me 👉`;
+    this.hud.showShare(text, location.href); // custom in-app card, not the native OS sheet
   }
 
   private reactToEvents(): void {
@@ -227,9 +226,10 @@ export class Game {
     mute.onclick = () => { this.audio.toggleMute(); paintMute(); };
     const pause = document.createElement("button");
     pause.className = "sysbtn";
-    pause.textContent = "⏸";
+    pause.textContent = "❚❚";
     pause.setAttribute("aria-label", "Pause");
     pause.onclick = () => this.togglePause();
+    this.pauseBtn = pause;
     bar.append(mute, pause);
     document.getElementById("app")?.appendChild(bar);
     return bar;
@@ -248,6 +248,7 @@ export class Game {
   togglePause(): void {
     if (this.ended || !this.sim.alive) return;
     this.paused = !this.paused;
+    if (this.pauseBtn) { this.pauseBtn.textContent = this.paused ? "►" : "❚❚"; this.pauseBtn.setAttribute("aria-label", this.paused ? "Resume" : "Pause"); }
     if (this.paused) { this.audio.suspend(); this.hud.showPause(() => this.togglePause()); }
     else { this.audio.resume(); this.hud.hidePause(); this.lastT = 0; this.acc = 0; }
   }
