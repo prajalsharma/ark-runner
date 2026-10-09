@@ -39,6 +39,7 @@ export class RunnerRig {
   private shR = new THREE.Group();
   private elbowL = new THREE.Group();
   private elbowR = new THREE.Group();
+  private handR = new THREE.Group();  // right hand group — the cutscene donut is held here
   private hood = new THREE.Group();   // cowl pivot — sways on its own (secondary motion)
   private pack = new THREE.Group();   // ledger-pack pivot — sways on its own
   private suitMat: THREE.MeshStandardMaterial;   // the player-coloured run suit
@@ -180,7 +181,7 @@ export class RunnerRig {
       const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.055, 0.04, 10), this.gearMat);
       cuff.position.y = -0.28; elbow.add(cuff);                 // sleeve cuff at the wrist
       // Hand: skin palm + four fingers + a thumb (a loose running fist).
-      const hand = new THREE.Group(); hand.position.y = -0.31; elbow.add(hand);
+      const hand = sx > 0 ? this.handR : new THREE.Group(); hand.position.y = -0.31; elbow.add(hand);
       const palm = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.085, 0.05), this.skinMat);
       palm.position.y = -0.02; hand.add(palm);
       for (let f = 0; f < 4; f++) {
@@ -320,5 +321,36 @@ export class RunnerRig {
     const sy = baseY * (1 - this.squash + this.stretch);
     const sxz = 1 + this.squash * 0.6 - this.stretch * 0.28;
     this.group.scale.set(sxz, sy, sxz);
+  }
+
+  /** A STANDING bakery pose for the cutscene — no run cycle (SAT isn't running while he
+   *  bites). `armUp` (0..1) raises the right hand to the mouth so the donut reads as held
+   *  and eaten, with a small head dip. Resets all run/spring/scale state. */
+  cutscenePose(armUp: number): void {
+    const a = clamp(armUp, 0, 1);
+    // Clear dynamic state so it's a clean, still pose.
+    this.airF = 0; this.slideF = 0; this.squash = 0; this.stretch = 0;
+    this.leanZ = this.leanV = this.yaw = this.yawV = 0; this.havePrev = false;
+    this.hoodX = this.hoodXV = this.hoodZ = this.hoodZV = 0; this.packX = this.packXV = this.packZ = this.packZV = 0;
+    this.group.rotation.set(0, Math.PI, 0); this.group.position.y = 0; this.group.scale.set(1, 1, 1);
+    // Legs: relaxed standing stance (not mid-stride).
+    this.hipL.rotation.x = 0.10; this.hipR.rotation.x = -0.08;
+    this.kneeL.rotation.x = 0.16; this.kneeR.rotation.x = 0.12;
+    // Right arm raises the donut from the hip (a=0) up to the MOUTH (a=1). The target pose
+    // at a=1 brings the fist to world ≈ (0, 1.52, -0.34) — right at the lips, on the −z face
+    // side — by adducting across the body (shR.z) rather than flaring out to the side.
+    this.shR.rotation.x = lerp(0.2, -1.15, a); this.shR.rotation.z = lerp(-0.14, -0.9, a); this.elbowR.rotation.x = lerp(-0.3, -1.4, a);
+    this.shL.rotation.x = 0.18; this.shL.rotation.z = 0.22; this.elbowL.rotation.x = -0.55;
+    // Torso stays mostly upright; the head tips down a touch to meet the donut.
+    this.body.rotation.set(0.05 + a * 0.05, 0, 0);
+    this.hood.rotation.set(0.04 + a * 0.16, 0, 0);
+    this.pack.rotation.set(0.05, 0, 0);
+  }
+
+  /** World position of the right hand (the cutscene donut rides here). Call after an update
+   *  or cutscenePose, once the group is in the scene graph. */
+  rightHandWorld(out: THREE.Vector3): THREE.Vector3 {
+    this.group.updateMatrixWorld(true);
+    return this.handR.getWorldPosition(out);
   }
 }

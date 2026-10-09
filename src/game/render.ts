@@ -24,6 +24,8 @@ export type Hero = {
   update(st: { x: number; y: number; sliding: boolean; grounded: boolean; phase: number; emissive: number }): void;
   setColor(hex: number): void;
   setColorObj(c: THREE.Color): void;
+  cutscenePose?(armUp: number): void; // standing bakery pose (no run cycle); armUp 0..1 raises the donut hand
+  rightHandWorld?(out: THREE.Vector3): THREE.Vector3; // world pos of the right hand (cutscene donut rides here)
 };
 import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
@@ -44,6 +46,8 @@ export type CineState = {
   distance: number;
   runnerX: number;
   runnerPhase: number;
+  runnerRun?: boolean;   // false = standing bakery pose (hold/bite the donut), not the run cycle
+  armUp?: number;        // 0..1 raise the donut hand to the mouth (standing pose only)
   runnerY?: number;      // vertical (trip dip / small hop)
   runnerPitch?: number;  // forward lean, radians — the stumble/trip pose
   shake?: number;        // camera shake 0..1 (impact of the near-catch)
@@ -137,6 +141,7 @@ export class Renderer {
   private lastNearMiss = 0;    // to detect a fresh near-miss → surge
   private stumbleT = 0;        // >0 while the runner trips & recovers from a close call
   private donut: THREE.Group;
+  private _donutAnchor = new THREE.Vector3(); // scratch for the hand-held donut position
   private bakery!: THREE.Group;
   private heroShadow!: THREE.Mesh;
   private heroTrail!: THREE.Mesh;
@@ -504,9 +509,15 @@ export class Renderer {
     this.city.update(st.distance);
     this.rig.setColorObj(this.cPlayer);
     const ry = st.runnerY ?? 0;
-    this.rig.update({ x: st.runnerX, y: ry, sliding: false, grounded: true, phase: st.runnerPhase, emissive: 0.9 });
-    // Trip/stumble: pitch the whole figure forward (gait still flails underneath).
-    this.rig.group.rotation.x = st.runnerPitch ?? 0;
+    if (st.runnerRun === false && this.rig.cutscenePose) {
+      // Standing at the bakery, holding/biting the donut — not running in place.
+      this.rig.cutscenePose(st.armUp ?? 1);
+      this.rig.group.position.x = st.runnerX;
+    } else {
+      this.rig.update({ x: st.runnerX, y: ry, sliding: false, grounded: true, phase: st.runnerPhase, emissive: 0.9 });
+      // Trip/stumble: pitch the whole figure forward (gait still flails underneath).
+      this.rig.group.rotation.x = st.runnerPitch ?? 0;
+    }
     // no sim → hide all gameplay pools
     this.obstacles.beginFrame(); this.obstacles.finish();
     for (const m of this.enPool) m.visible = false;
@@ -526,7 +537,14 @@ export class Renderer {
     } else this.chaser.setVisible(false);
     if (st.donut) {
       this.donut.visible = true;
-      this.donut.position.set(st.donut.x, st.donut.y, st.donut.z);
+      if (st.runnerRun === false && this.rig.rightHandWorld) {
+        // Held in the hand: ride the right-hand bone so the donut and fist never separate as
+        // the arm raises to the mouth. The shot only drives the scale (the chomp).
+        const h = this.rig.rightHandWorld(this._donutAnchor);
+        this.donut.position.set(h.x, h.y + 0.05, h.z - 0.08); // just above/in front of the fist, at the lips
+      } else {
+        this.donut.position.set(st.donut.x, st.donut.y, st.donut.z);
+      }
       this.donut.scale.setScalar(st.donut.scale);
       this.donut.rotation.set(0.35, nowMs / 700, 0);
     } else this.donut.visible = false;
