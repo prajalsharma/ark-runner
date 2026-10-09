@@ -176,6 +176,7 @@ body {
 .c3-siren { position: absolute; inset: 0; background: radial-gradient(60% 50% at 50% 40%, rgba(255,40,40,0.3), transparent 70%); animation: sirenFlash 0.5s steps(2) infinite; }
 .c3-hint { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); text-align: center; font-size: clamp(14px, 3.6vw, 18px); font-weight: 800; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 16px #000; animation: csIn 0.4s ease-out; pointer-events: none; }
 .c3-hintsub { font-size: 11px; letter-spacing: 3px; color: #ffd54a; margin-top: 8px; }
+.c3-term { font-size: clamp(16px, 4vw, 24px); font-weight: 800; letter-spacing: 3px; color: #ffb020; text-shadow: 0 0 18px rgba(255,176,32,0.7); margin-bottom: 6px; }
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
   20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }

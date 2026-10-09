@@ -35,6 +35,7 @@ export type CineState = {
   runnerPitch?: number;  // forward lean, radians — the stumble/trip pose
   shake?: number;        // camera shake 0..1 (impact of the near-catch)
   fov?: number;          // override FOV (bolt widens for speed)
+  bakery?: boolean;      // show the opening bakery set (counter, ₿AKERY sign, PENDING terminal)
   drone: { x: number; y: number; z: number; eye: number } | null;
   donut: { x: number; y: number; z: number; scale: number } | null;
 };
@@ -52,6 +53,34 @@ function makeBitcoinTexture(): THREE.Texture {
   return t;
 }
 
+/** The payment terminal screen: "PAYMENT / PENDING" in amber on dark — the whole joke. */
+function makeTerminalTexture(): THREE.Texture {
+  if (typeof document === "undefined") return new THREE.Texture();
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 192;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#0a0d12"; ctx.fillRect(0, 0, 256, 192);
+  ctx.fillStyle = "#1a1f2e"; ctx.fillRect(10, 10, 236, 172);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#8a90a6"; ctx.font = "bold 26px Arial"; ctx.fillText("PAYMENT", 128, 66);
+  ctx.fillStyle = "#ffb020"; ctx.font = "bold 46px Arial"; ctx.fillText("PENDING", 128, 124);
+  ctx.fillStyle = "#ff6b5b"; ctx.font = "16px Arial"; ctx.fillText("● unsettled", 128, 160);
+  return new THREE.CanvasTexture(c);
+}
+
+/** A glowing ₿AKERY shop sign for the opening. */
+function makeBakerySignTexture(): THREE.Texture {
+  if (typeof document === "undefined") return new THREE.Texture();
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 128;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#0a0c14"; ctx.fillRect(0, 0, 512, 128);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#f7931a"; ctx.font = "bold 76px Georgia, serif";
+  ctx.fillText("₿AKERY", 256, 70);
+  return new THREE.CanvasTexture(c);
+}
+
 export class Renderer {
   readonly scene = new THREE.Scene();
   private cam: THREE.PerspectiveCamera;
@@ -63,6 +92,7 @@ export class Renderer {
   private lastNearMiss = 0;    // to detect a fresh near-miss → surge
   private stumbleT = 0;        // >0 while the runner trips & recovers from a close call
   private donut: THREE.Group;
+  private bakery!: THREE.Group;
   private obstacles!: ObstacleKit;
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
@@ -240,6 +270,12 @@ export class Renderer {
     this.donut.visible = false;
     this.scene.add(this.donut);
 
+    // The opening BAKERY set (cutscene only): a counter, a glowing ₿AKERY sign, and the
+    // payment terminal still reading PAYMENT: PENDING. Hidden during gameplay.
+    this.bakery = this.buildBakery();
+    this.bakery.visible = false;
+    this.scene.add(this.bakery);
+
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
     this.rig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
@@ -316,6 +352,36 @@ export class Renderer {
     this.rig.setColor(hex);
   }
 
+  /** The opening bakery set: back wall + glowing ₿AKERY sign, a counter with donuts on a
+   *  tray, and the payment terminal reading PAYMENT: PENDING. Built once, shown in the cutscene. */
+  private buildBakery(): THREE.Group {
+    const g = new THREE.Group();
+    // The shop sits BEHIND the runner (+z); its sign + terminal face down the street (-z)
+    // toward the opening camera, which looks back at the runner's face.
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x15110c, roughness: 0.9 });
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(12, 7, 0.4), wallMat);
+    wall.position.set(0, 3.5, 4.8); g.add(wall);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.5), new THREE.MeshStandardMaterial({ map: makeBakerySignTexture(), emissive: 0xf7931a, emissiveIntensity: 0.9, transparent: true }));
+    sign.position.set(0, 5.3, 4.55); sign.rotation.y = Math.PI; g.add(sign);
+    const shopGlow = new THREE.PointLight(0xffb15a, 0.9, 16); shopGlow.position.set(0, 4, 2.5); g.add(shopGlow);
+    // counter to the side so it never blocks the runner
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(5, 1.1, 1.2), new THREE.MeshStandardMaterial({ color: 0x3a2a18, roughness: 0.7 }));
+    counter.position.set(-2.6, 0.55, 2.6); g.add(counter);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(5.1, 0.12, 1.3), new THREE.MeshStandardMaterial({ color: 0x5a4328, roughness: 0.5, metalness: 0.3 }));
+    top.position.set(-2.6, 1.16, 2.6); g.add(top);
+    const dMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff7a1a, emissiveIntensity: 0.3, roughness: 0.5 });
+    for (let i = 0; i < 3; i++) {
+      const d = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.08, 10, 16), dMat);
+      d.rotation.x = Math.PI / 2; d.position.set(-3.8 + i * 0.6, 1.3, 2.6); g.add(d);
+    }
+    // payment terminal kiosk + PENDING screen, to the right, screen facing the street (-z)
+    const kiosk = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.4, 0.6), new THREE.MeshStandardMaterial({ color: 0x1a1d27, roughness: 0.6, metalness: 0.4 }));
+    kiosk.position.set(2.6, 1.3, 2.4); g.add(kiosk);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.62), new THREE.MeshStandardMaterial({ map: makeTerminalTexture(), emissive: 0xffffff, emissiveIntensity: 0.8, transparent: true }));
+    screen.position.set(2.6, 1.78, 2.08); screen.rotation.y = Math.PI + 0.3; g.add(screen);
+    return g;
+  }
+
   /** Render one scripted cinematic frame (the opening cutscene drives this). */
   cutsceneFrame(nowMs: number, st: CineState): void {
     (this.scene.background as THREE.Color).copy(this.cBg);
@@ -337,7 +403,8 @@ export class Renderer {
       // Face the viewer so the scanner eye reads during the confrontation; pitch down a
       // little once it has descended to the runner's level.
       this.chaser.group.position.set(st.drone.x, st.drone.y, st.drone.z);
-      this.chaser.group.rotation.set(0.2 + Math.max(0, (10 - st.drone.y) * 0.03), Math.PI, 0);
+      // Front (eye/claws = local -z) faces the runner/camera; pitches down as it descends.
+      this.chaser.group.rotation.set(0.15 + Math.max(0, (9 - st.drone.y) * 0.05), 0, 0);
       this.chaser.group.scale.setScalar(1);
       this.chaser.update(nowMs, 0.8);
       this.chaser.setEye(st.drone.eye);
@@ -348,6 +415,7 @@ export class Renderer {
       this.donut.scale.setScalar(st.donut.scale);
       this.donut.rotation.set(0.35, nowMs / 700, 0);
     } else this.donut.visible = false;
+    this.bakery.visible = !!st.bakery;
     this.cam.fov = st.fov ?? 52;
     const sk = st.shake ?? 0;
     const sx = sk ? (Math.random() - 0.5) * sk : 0;
@@ -486,7 +554,8 @@ export class Renderer {
     this.menace += ((Math.max(menaceTarget, this.menace * 0.985) - this.menace)) * 0.06;
     const men = (sim.hyperFlow || sim.blockRun) ? Math.max(this.menace, 0.45) : this.menace;
     this.chaser.setVisible(true);
-    this.donut.visible = false; // donut is a cutscene-only prop
+    this.donut.visible = false; // donut + bakery are cutscene-only props
+    this.bakery.visible = false;
     // Hangs high + small when cruising (never occludes the lane); dives bigger/closer as it
     // bears down, claws reaching for the runner.
     const cz = THREE.MathUtils.lerp(4.4, 3.7, men);

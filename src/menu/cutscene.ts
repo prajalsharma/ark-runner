@@ -14,7 +14,7 @@ type Drone = { x: number; y: number; z: number; eye: number };
 type Donut = { x: number; y: number; z: number; scale: number };
 type Key = {
   cam: V3; look: V3; drift: number;
-  drone?: Drone; donut?: Donut;
+  drone?: Drone; donut?: Donut; bakery?: boolean;
   ry?: number;     // runner vertical (trip dip)
   pitch?: number;  // runner forward lean — the stumble
   shake?: number;  // camera shake (near-catch impact)
@@ -33,7 +33,8 @@ const PLAY_LOOK: V3 = [0, 1.4, -10];
 
 export class Cutscene {
   private raf = 0;
-  private t0 = 0;
+  private elapsed = 0;   // ms into the cutscene, accumulated from CLAMPED frame deltas
+  private lastNow = 0;
   private distance = 0;
   private lastShot = -1;
 
@@ -41,48 +42,59 @@ export class Cutscene {
 
   private shots(): Shot[] {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
-    const donut = (s: number): Donut => ({ x: 0, y: 2.2, z: -2.6, scale: s });
-    // Tight ~6s cold-open (skippable). One strong beat each: city → steal the donut →
-    // the Auditor drops in → bolt & nearly trip → you're running. No 30-second epic.
+    // ~4.2s cold-open (skippable), the donut-heist gag in five cuts: the crime (bite +
+    // PENDING terminal) → the reveal (Auditor drops in) → the reaction ("that seems
+    // negotiable") → the chase (bolt, Auditor swoops) → seamless hand-off into the run.
+    // Front angles (0-2) then a CUT to the low behind-tracking chase (3-4), so the camera
+    // never flies through the runner. The runner faces +z; the bakery is behind at +z.
     return [
-      // 0 — establish + push in (1.1s)
-      { dur: 1100, cap: `<div class="c3-big">ARCH CITY</div><div class="c3-sub">3 AM · one thing on your mind</div>`,
-        a: { cam: [7, 11, 20], look: [0, 2.4, -6], drift: 2 }, b: { cam: [2.4, 4, 7], look: [0, 2.2, -3], drift: 2 } },
-      // 1 — grab the Satoshi donut and bite it (1.5s)
-      { dur: 1500, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-big" style="font-size:38px">*CRUNCH*</div>`,
-        a: { cam: [1.3, 2.5, 2.8], look: [0, 2.2, -2.6], donut: donut(1.06), drift: 1 }, b: { cam: [1.1, 2.4, 2.7], look: [0, 2.2, -2.6], donut: donut(0.7), drift: 1 } },
-      // 2 — the Auditor drops in (1.3s)
-      { dur: 1300, cap: `<div class="c3-siren"></div><div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry detected.</div>`,
-        a: { cam: [0, 3.6, 8.5], look: [0, 9, -6], drone: drone(0, 16, -6, 1.3), drift: 2 }, b: { cam: [-1.6, 2.6, 5], look: [0, 6, -5.5], drone: drone(0, 7, -5.5, 2.6), drift: 2 } },
-      // 3 — BOLT + near-trip (1.4s)
-      { dur: 1400, cap: `<div class="c3-you"><b>YOU:</b> Worth it.</div><div class="c3-big" style="font-size:38px">*STUMBLE*</div>`,
-        a: { cam: [-1.6, 2.6, 5], look: [0, 3.5, -6], drone: drone(0, 7, -6, 2.8), drift: 14, ry: 0, pitch: 0.1, shake: 0, fov: 56 },
-        b: { cam: [-0.3, 3.4, 6.9], look: [0, 1.1, -7], drone: drone(0, 3.1, -4, 3.0), drift: 26, ry: -0.12, pitch: 0.9, shake: 0.5, fov: 62 } },
-      // 4 — RECOVER + seamless hand-off to the gameplay chase cam (1.1s)
-      { dur: 1100, cap: ``, hint: true,
-        a: { cam: [-0.3, 3.4, 6.9], look: [0, 1.1, -7], drone: drone(0, 3.1, -4, 3.0), drift: 26, ry: -0.12, pitch: 0.9, shake: 0.4, fov: 62 },
-        b: { cam: PLAY_CAM, look: PLAY_LOOK, drone: drone(0, 9, -22, 1.6), drift: 32, ry: 0, pitch: 0.05, shake: 0, fov: 58 } },
+      // 0 — THE CRIME: close on the exaggerated bite; the terminal still reads PENDING.
+      { dur: 900, cap: `<div class="c3-term">PAYMENT: PENDING</div><div class="c3-big" style="font-size:40px">*CRUNCH*</div>`,
+        a: { cam: [1.9, 1.95, -2.7], look: [0, 1.55, 0.6], donut: { x: 0.12, y: 1.66, z: 0.5, scale: 1.0 }, bakery: true, drift: 0 },
+        b: { cam: [1.4, 1.95, -2.2], look: [0, 1.55, 0.5], donut: { x: 0.12, y: 1.62, z: 0.5, scale: 0.66 }, bakery: true, drift: 0 } },
+      // 1 — THE REVEAL: camera lifts past the runner to the Auditor dropping in; eye ignites.
+      { dur: 850, cap: `<div class="c3-siren"></div><div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry detected.</div>`,
+        a: { cam: [1.2, 2.1, -2.4], look: [0, 2.2, 1.6], drone: drone(0, 9, 5, 1.2), bakery: true, drift: 0 },
+        b: { cam: [0.4, 3.0, -3.2], look: [0, 4.6, 3.8], drone: drone(0, 5.2, 4, 2.6), bakery: true, drift: 0 } },
+      // 2 — THE REACTION: cut to the runner's face; a frozen beat; the one-liner.
+      { dur: 850, cap: `<div class="c3-you"><b>YOU:</b> That seems negotiable.</div>`,
+        a: { cam: [0.8, 1.85, -1.7], look: [0, 1.55, 0.4], drone: drone(0, 4.8, 4, 2.6), bakery: true, drift: 0 },
+        b: { cam: [0.72, 1.86, -1.62], look: [0, 1.55, 0.4], drone: drone(0.3, 4.7, 3.8, 2.6), bakery: true, drift: 0 } },
+      // 3 — THE CHASE: CUT to a low behind-tracking shot; the runner bolts, the Auditor
+      // swoops over into frame, the camera rises toward the gameplay angle.
+      { dur: 1000, cap: `<div class="c3-big" style="font-size:40px">RUN!</div>`,
+        a: { cam: [0, 2.0, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 8, fov: 56 },
+        b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 26, fov: 60 } },
+      // 4 — HAND-OFF: settle to the EXACT gameplay camera; control hint; auto-start the run.
+      { dur: 600, cap: ``, hint: true,
+        a: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 28, fov: 60 },
+        b: { cam: PLAY_CAM, look: PLAY_LOOK, drone: drone(0, 9, -20, 1.7), drift: 32, fov: 58 } },
     ];
   }
 
   play(): void {
-    this.t0 = 0; this.distance = 0; this.lastShot = -1;
+    this.elapsed = 0; this.lastNow = 0; this.distance = 0; this.lastShot = -1;
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
   }
 
   private loop(now: number): void {
-    if (!this.t0) this.t0 = now;
+    // Accumulate from a CLAMPED delta so a slow first frame (shader compile) or any hitch
+    // can't fast-forward past the whole cutscene — it just plays a touch slower.
+    if (!this.lastNow) this.lastNow = now;
+    const dtMs = Math.min(100, now - this.lastNow);
+    this.lastNow = now;
+    this.elapsed += dtMs;
     const shots = this.shots();
     const total = shots.reduce((s, sh) => s + sh.dur, 0);
-    const elapsed = now - this.t0;
+    const elapsed = this.elapsed;
 
     // find current shot
     let acc = 0, idx = 0, local = 0;
     for (let i = 0; i < shots.length; i++) { if (elapsed < acc + shots[i]!.dur) { idx = i; local = elapsed - acc; break; } acc += shots[i]!.dur; idx = i; local = shots[i]!.dur; }
     const sh = shots[idx]!;
     const k = ease(Math.min(1, local / sh.dur));
-    this.distance += lerp(sh.a.drift, sh.b.drift, k) * 0.016;
+    this.distance += lerp(sh.a.drift, sh.b.drift, k) * (dtMs / 1000);
 
     this.attract.renderCine(now, this.frame(sh, k));
 
@@ -107,8 +119,9 @@ export class Cutscene {
       runnerPitch: lerp(a.pitch ?? 0, b.pitch ?? 0, k),
       shake: lerp(a.shake ?? 0, b.shake ?? 0, k),
       fov: lerp(a.fov ?? 52, b.fov ?? 52, k),
+      bakery: !!(a.bakery || b.bakery),
       drone: bothDrone ? { x: lerp(a.drone!.x, b.drone!.x, k), y: lerp(a.drone!.y, b.drone!.y, k), z: lerp(a.drone!.z, b.drone!.z, k), eye: lerp(a.drone!.eye, b.drone!.eye, k) } : null,
-      donut: bothDonut ? { x: 0, y: 2.2, z: -2.6, scale: lerp(a.donut!.scale, b.donut!.scale, k) } : null,
+      donut: bothDonut ? { x: lerp(a.donut!.x, b.donut!.x, k), y: lerp(a.donut!.y, b.donut!.y, k), z: lerp(a.donut!.z, b.donut!.z, k), scale: lerp(a.donut!.scale, b.donut!.scale, k) } : null,
     };
   }
 
