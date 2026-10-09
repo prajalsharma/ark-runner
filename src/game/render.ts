@@ -37,6 +37,7 @@ export class Renderer {
   private gl: THREE.WebGLRenderer;
   private rig: RunnerRig;
   private city: CityScape;
+  private auditor: THREE.Group;
   private obPool: THREE.Mesh[] = [];
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
@@ -143,6 +144,15 @@ export class Renderer {
 
     // The city around the corridor (depth + atmosphere). Fewer towers on low quality.
     this.city = new CityScape(this.scene, this.lowQ ? 9 : 18);
+
+    // THE AUDITOR — a surveillance drone looming in the distance ahead (context, not a hazard).
+    this.auditor = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1.25, 16, 12), new THREE.MeshStandardMaterial({ color: 0x15161e, roughness: 0.5, metalness: 0.5 }));
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5a00, emissiveIntensity: 1.4 }));
+    eye.position.set(0, 0, 1.0);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.08, 6, 20), new THREE.MeshStandardMaterial({ color: 0x3a0a00, emissive: 0xff3b00, emissiveIntensity: 0.5 }));
+    this.auditor.add(body, eye, ring);
+    this.scene.add(this.auditor);
 
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
@@ -282,6 +292,13 @@ export class Renderer {
 
     // City scrolls past (recycled).
     this.city.update(d);
+
+    // The Auditor drone looms ~44 units ahead (you never catch it), bobbing + scanning;
+    // its eye flares during Block Run / Hyper Flow. Eye faces the camera (local +z).
+    this.auditor.position.set(Math.sin(nowMs / 1800) * 2.4, 8 + Math.sin(nowMs / 900) * 0.5, -44);
+    this.auditor.children[2]!.rotation.z = nowMs / 500; // scanning ring
+    const eyeMat = (this.auditor.children[1] as THREE.Mesh).material as THREE.MeshStandardMaterial;
+    eyeMat.emissiveIntensity = 1.2 + ((sim.hyperFlow || sim.blockRun) ? 1.0 : 0) + Math.sin(nowMs / 200) * 0.3;
 
     // Floor ticks scroll.
     const spacing = 4;
