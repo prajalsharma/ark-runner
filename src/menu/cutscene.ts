@@ -44,22 +44,30 @@ export class Cutscene {
     return this.variant === "quick" ? this.quickShots() : this.storyShots();
   }
 
-  /** The per-run cold-open (~4.5s, skippable, mostly VISUAL): the Auditor lights up behind
-   *  you at the bakery (PENDING cue, no dialogue) → you bolt, it swoops → hand-off. Gives
-   *  every run context + stakes without a wall of text, the way Subway/Temple Run do. */
+  /** The per-run cold-open (~7s, skippable, mostly VISUAL): bite the donut at the bakery →
+   *  the terminal reads PENDING, the Auditor ignites behind you → you bolt, it swoops →
+   *  hand-off. Enough beats to read the stakes without a wall of text (Subway/Temple style). */
   private quickShots(): Shot[] {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
     return [
-      // caught: the terminal reads PENDING, the Auditor's eye ignites behind you
-      { dur: 1400, cap: `<div class="c3-siren"></div><div class="c3-term">PAYMENT: PENDING</div>`,
-        a: { cam: [1.6, 2.1, -2.4], look: [0, 2.0, 1.4], donut: { x: 0.12, y: 1.66, z: 0.5, scale: 0.7 }, drone: drone(0, 10, 5, 1.0), bakery: true, drift: 0 },
-        b: { cam: [0.7, 2.6, -3.0], look: [0, 4.2, 3.6], drone: drone(0, 5.4, 4.2, 2.7), bakery: true, drift: 0 } },
-      // BOLT: cut to a low behind-tracking shot; the Auditor swoops over, speed builds
-      { dur: 1700, cap: ``,
+      // 0 — THE BITE: close on the runner taking the donut (establish the crime)
+      { dur: 1600, cap: `<div class="c3-line">THE SATOSHI DONUT</div>`,
+        a: { cam: [1.9, 1.95, -2.7], look: [0, 1.6, 0.5], donut: { x: 0.12, y: 1.66, z: 0.5, scale: 1.0 }, bakery: true, drift: 0 },
+        b: { cam: [1.5, 2.0, -2.3], look: [0, 1.6, 0.5], donut: { x: 0.12, y: 1.63, z: 0.5, scale: 0.68 }, bakery: true, drift: 0 } },
+      // 1 — CAUGHT: the terminal still reads PENDING, the Auditor's eye ignites behind you
+      { dur: 1700, cap: `<div class="c3-siren"></div><div class="c3-term">PAYMENT: PENDING</div>`,
+        a: { cam: [1.3, 2.1, -2.4], look: [0, 2.2, 1.4], donut: { x: 0.12, y: 1.62, z: 0.5, scale: 0.68 }, drone: drone(0, 10, 5, 1.0), bakery: true, drift: 0 },
+        b: { cam: [0.7, 2.7, -3.0], look: [0, 4.3, 3.6], drone: drone(0, 5.3, 4.2, 2.8), bakery: true, drift: 0 } },
+      // 2 — THE WORD: Auditor bears down; "UNSETTLED PASTRY DETECTED."
+      { dur: 1500, cap: `<div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry detected.</div>`,
+        a: { cam: [-1.8, 2.3, 4.6], look: [0, 4.6, 3.2], drone: drone(0, 5.1, 3.4, 2.9), bakery: true, drift: 0 },
+        b: { cam: [-1.0, 2.2, 4.0], look: [0, 4.2, 2.6], drone: drone(0.5, 4.6, 2.2, 3.0), bakery: true, drift: 0 } },
+      // 3 — BOLT: CUT to a low behind-tracking shot; the Auditor swoops over, speed builds
+      { dur: 1500, cap: `<div class="c3-big" style="font-size:40px">RUN!</div>`,
         a: { cam: [0, 2.0, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 8, fov: 56 },
         b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 26, fov: 60 } },
-      // hand-off: settle to the exact gameplay camera, GO
-      { dur: 1300, cap: ``, hint: true,
+      // 4 — hand-off: settle to the exact gameplay camera, GO
+      { dur: 1200, cap: ``, hint: true,
         a: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 28, fov: 60 },
         b: { cam: PLAY_CAM, look: PLAY_LOOK, drone: drone(0, 9, -20, 1.7), drift: 32, fov: 58 } },
     ];

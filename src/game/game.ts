@@ -51,6 +51,7 @@ export class Game {
   private perfLocked = false;
   private coinStreak = 0;    // consecutive coins (resets after a gap) → rising pickup pitch
   private lastCoinAt = 0;
+  private lastSlideDust = 0;
   private dateKey = dateKeyUTC();
   private comp: CompetitionCtx | null = null;
 
@@ -70,8 +71,8 @@ export class Game {
 
     this.detach = attachInput((a) => {
       if (!this.sim.alive || this.paused) return;
-      if (a === "jump" && this.sim.grounded) this.audio.play("jump");
-      else if (a === "slide" && this.sim.grounded) this.audio.play("slide");
+      if (a === "jump" && this.sim.grounded) { this.audio.play("jump"); this.renderer.burst("jump"); this.renderer.addShake(0.05); }
+      else if (a === "slide" && this.sim.grounded) { this.audio.play("slide"); this.renderer.burst("slide"); }
       this.sim.input(a);
     });
 
@@ -116,6 +117,8 @@ export class Game {
     while (this.acc >= DT) { this.sim.step(); this.acc -= DT; }
 
     this.reactToEvents();
+    // Continuous dust trail while sliding (not just on entry) so the slide reads with speed.
+    if (this.sim.sliding && this.sim.alive && now - this.lastSlideDust > 110) { this.renderer.burst("slide"); this.lastSlideDust = now; }
     this.audio.setDrive(this.sim.speed, this.sim.blockRun);
     this.renderer.render(this.sim, now);
     this.hud.update(this.sim);
@@ -199,7 +202,7 @@ export class Game {
   private reactToEvents(): void {
     const s = this.sim, p = this.prev;
     const now = performance.now();
-    if (s.grounded && !p.grounded) this.audio.play("land");
+    if (s.grounded && !p.grounded) { this.audio.play("land"); this.renderer.burst("land"); this.renderer.addShake(0.08); }
     if (s.collected > p.collected) {
       if (now - this.lastCoinAt > 800) this.coinStreak = 0; // streak breaks after a gap
       this.coinStreak += s.collected - p.collected;

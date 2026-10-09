@@ -504,22 +504,28 @@ export class Renderer {
   addShake(v: number): void { if (!this.reduced && !this.perf) this.shake = Math.min(1.3, this.shake + v); }
 
   /** Spawn a particle burst at the player (presentation only). */
-  burst(kind: "collect" | "perfect" | "death" | "flip"): void {
+  burst(kind: "collect" | "perfect" | "death" | "flip" | "jump" | "land" | "slide"): void {
     if (this.reduced || this.perf) return;
-    const n = kind === "death" ? 20 : kind === "collect" ? 10 : 12;
-    const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : kind === "collect" ? 0xffb347 : 0xffd54a;
-    const speed = kind === "death" ? 9 : kind === "collect" ? 6 : 5;
+    const feet = kind === "jump" || kind === "land" || kind === "slide"; // dust at the ground
+    const n = kind === "death" ? 20 : kind === "land" ? 14 : kind === "collect" ? 10 : 12;
+    const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : kind === "collect" ? 0xffb347
+      : feet ? 0xe6d6b0 : 0xffd54a; // feet kick up warm off-white street dust
+    const speed = kind === "death" ? 9 : kind === "collect" ? 6 : kind === "slide" ? 8 : 5;
+    const oy = feet ? 0.14 : this.lastPlayerY;
     let spawned = 0;
     for (const p of this.parts) {
       if (p.life > 0) continue;
       if (spawned >= n) break;
       spawned++;
-      p.m.position.set(this.lastPlayerX, this.lastPlayerY, 0);
+      p.m.position.set(this.lastPlayerX + (Math.random() - 0.5) * 0.3, oy, feet ? (Math.random() - 0.5) * 0.3 : 0);
       const mat = p.m.material as THREE.MeshBasicMaterial;
       mat.color.setHex(color); mat.opacity = 1;
       const a = Math.random() * Math.PI * 2, sp = speed * (0.4 + Math.random() * 0.6);
-      p.vx = Math.cos(a) * sp; p.vy = Math.random() * sp + 2; p.vz = Math.sin(a) * sp * 0.5;
-      p.max = kind === "death" ? 0.8 : 0.5; p.life = p.max;
+      if (kind === "jump") { p.vx = Math.cos(a) * sp * 0.5; p.vy = 1 + Math.random() * 1.5; p.vz = 1.5 + Math.random() * 2; } // kick down/back on takeoff
+      else if (kind === "land") { p.vx = Math.cos(a) * sp; p.vy = 0.5 + Math.random() * 1.5; p.vz = Math.sin(a) * sp; }      // outward puff ring
+      else if (kind === "slide") { p.vx = (Math.random() - 0.5) * sp * 0.4; p.vy = 0.4 + Math.random(); p.vz = 3 + Math.random() * 3; } // trail behind (+z)
+      else { p.vx = Math.cos(a) * sp; p.vy = Math.random() * sp + 2; p.vz = Math.sin(a) * sp * 0.5; }
+      p.max = kind === "death" ? 0.8 : feet ? 0.45 : 0.5; p.life = p.max;
       p.m.visible = true;
     }
   }

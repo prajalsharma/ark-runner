@@ -234,8 +234,25 @@ export class Menu {
     this.game?.stop(); this.game = null; // stop() clears the old result card + disposes it
     this.attract.start();
     this.overlay.className = ""; this.overlay.innerHTML = "";
-    const go = (): void => this.launch(mode);
+    const go = (): void => this.handoffToGame(mode);
     new Cutscene(this.attract, this.overlay, go, go, "quick").play();
+  }
+
+  /** Smooth the cutscene→game cut: fade through black while the new game context spins up
+   *  and the scrolling world resets, then reveal — no hard swap / world-snap flash. */
+  private handoffToGame(mode: Mode): void {
+    const fade = this.fadeVeil();
+    fade.style.opacity = "1";
+    window.setTimeout(() => {
+      this.launch(mode);
+      window.setTimeout(() => { fade.style.opacity = "0"; }, 600); // let the game render a few frames
+    }, 280);
+  }
+
+  private fadeVeil(): HTMLElement {
+    let el = document.getElementById("fadeveil");
+    if (!el) { el = document.createElement("div"); el.id = "fadeveil"; (document.getElementById("app") ?? document.body).appendChild(el); }
+    return el;
   }
 
   private launch(mode: Mode): void {

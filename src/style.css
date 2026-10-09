@@ -276,6 +276,7 @@ body {
 #scene { z-index: 0; }
 #attract { position: absolute; inset: 0; width: 100%; height: 100%; display: none; z-index: 1; }
 #attract.show { display: block; }
+#fadeveil { position: absolute; inset: 0; pointer-events: none; z-index: 50; background: #0b0e18; opacity: 0; transition: opacity 0.28s ease; }
 #vignette { position: absolute; inset: 0; pointer-events: none; z-index: 2;
   background: radial-gradient(130% 100% at 50% 42%, transparent 55%, rgba(0,0,0,0.5) 100%); }
 #hud { z-index: 3; }
