@@ -15,6 +15,8 @@ export type ResultMeta = {
   level?: number;
   leveledUp?: boolean;
   challenge?: { name: string; goal: string; met: boolean };
+  compStatus?: "ACCEPTED" | "REJECTED" | "DUPLICATE"; // Daily Block submission outcome
+  compDetail?: string;
 };
 
 const bestKey = "archrunner.best.v1";
@@ -170,6 +172,15 @@ export class HUD {
     const more = got.length > 3 ? `<div class="unlock more">+${got.length - 3} more — see PROFILE</div>` : got.length ? `<div class="unlock more">view all in PROFILE</div>` : "";
     const unlocks = shown + more;
     const levelUp = meta.leveledUp ? `<div class="unlock lvl">▲ RUNNER LEVEL ${meta.level}</div>` : "";
+    // Daily Block: show the TRUTHFUL competitive-record outcome (provisional until the
+    // server validator is live — never claim a client score is "secure"/"settled").
+    const comp = meta.mode === "daily" && meta.compStatus
+      ? meta.compStatus === "ACCEPTED"
+        ? `<div class="compstat ok">✓ RECORDED TO DAILY BLOCK · provisional (server validation pending)</div>`
+        : meta.compStatus === "DUPLICATE"
+          ? `<div class="compstat dup">• ALREADY RECORDED — your best run for today stands</div>`
+          : `<div class="compstat bad">✗ NOT COUNTED${meta.compDetail ? ` — ${meta.compDetail}` : ""}</div>`
+      : "";
     this.overlay.innerHTML = `
       <div class="card">
         <div class="eyebrow">${eyebrow}</div>
@@ -187,7 +198,7 @@ export class HUD {
         </div>
         <div class="coinnote">coins add to your score — more coins, bigger score</div>
         <div class="best">${bestLine}</div>
-        ${chal}${levelUp}${unlocks}
+        ${comp}${chal}${levelUp}${unlocks}
         <button id="retry" class="btn">RUN IT AGAIN</button>
         <div class="row">
           <button id="share" class="btn ghost">SHARE</button>

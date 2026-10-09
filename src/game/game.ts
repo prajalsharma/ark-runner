@@ -9,12 +9,15 @@ import { Renderer } from "./render.ts";
 import { HUD, type ResultMeta } from "../ui.ts";
 import { AudioManager } from "../engine/audio.ts";
 import { attachInput } from "../engine/input.ts";
-import { type Mode, dailySeed, dateKeyUTC, dailyNumber, dailyBest, dailyVariant, recordRun } from "./daily.ts";
+import { type Mode, dailySeed, dateKeyUTC, dailyNumber, dailyVariant } from "./daily.ts";
+import { recordFreeRun, submitDailyRun, competitiveDailyBest, DAILY_RULES, type SubmitStatus } from "./records.ts";
 import { selectedCharacterColor } from "./characters.ts";
 import { submitRun } from "../net/api.ts";
 import { recordRunStats } from "./achievements.ts";
 
-export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
+/** For Daily Block, the verified wallet identity the competitive run is recorded against. */
+export type CompetitionCtx = { address: string };
+export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
 
 type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; flowMult: number; alive: boolean };
 
@@ -48,9 +51,11 @@ export class Game {
   private coinStreak = 0;    // consecutive coins (resets after a gap) → rising pickup pitch
   private lastCoinAt = 0;
   private dateKey = dateKeyUTC();
+  private comp: CompetitionCtx | null = null;
 
   constructor(canvas: HTMLCanvasElement, hudEl: HTMLElement, overlayEl: HTMLElement, opts: GameOpts = {}) {
     this.mode = opts.mode ?? "free";
+    this.comp = opts.comp ?? null;
     this.onEnd = opts.onEnd;
     this.onMenu = opts.onMenu;
     this.cap = this.mode === "daily" ? MATCH_SECONDS : 0;
@@ -132,9 +137,20 @@ export class Game {
 
   private finishRun(): void {
     const s = this.sim;
+    const score = Math.floor(s.score);
+    // Route the run across the DATA BOUNDARY: free → local-only; daily → the verified
+    // wallet's competitive store, validated + de-duplicated. The two never mix.
+    let compStatus: SubmitStatus | undefined;
+    let compDetail: string | undefined;
     if (!this.recorded) {
       this.recorded = true;
-      recordRun({ score: Math.floor(s.score), mode: this.mode, dateKey: this.dateKey, ts: Date.now(), dist: s.distance, flips: s.flips, blockRuns: s.blockRuns });
+      const rec = { score, mode: this.mode, dateKey: this.dateKey, ts: Date.now(), dist: s.distance, flips: s.flips, blockRuns: s.blockRuns };
+      if (this.mode === "daily" && this.comp) {
+        const sub = submitDailyRun({ address: this.comp.address, score, dateKey: this.dateKey, dist: s.distance, flips: s.flips, blockRuns: s.blockRuns, seed: dailySeed(this.dateKey), versions: DAILY_RULES });
+        compStatus = sub.status; compDetail = sub.detail;
+      } else {
+        recordFreeRun(rec, s.collected); // free runs are local practice only — never competitive
+      }
     }
     // Progression: cumulative stats, XP/level, achievements (once per run).
     const prog = recordRunStats({ score: Math.floor(s.score), coins: s.collected, distance: s.distance, perfects: s.perfects, maxFlowMult: s.maxFlowMult, archFlips: s.flips, blockRuns: s.blockRuns });
@@ -154,7 +170,9 @@ export class Game {
     const meta: ResultMeta = {
       mode: this.mode,
       dailyNo: this.mode === "daily" ? dailyNumber(this.dateKey) : undefined,
-      dailyBest: this.mode === "daily" ? dailyBest(this.dateKey) : undefined,
+      dailyBest: this.mode === "daily" && this.comp ? competitiveDailyBest(this.comp.address, this.dateKey) : undefined,
+      compStatus,
+      compDetail,
       onRetry: () => this.restart(),
       onShare: () => this.share(),
       onMenu: this.onMenu ? () => { this.onMenu?.(); } : undefined,

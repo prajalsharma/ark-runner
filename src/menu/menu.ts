@@ -8,7 +8,8 @@
 import { Game } from "../game/game.ts";
 import { Attract } from "./attract.ts";
 import { Cutscene } from "./cutscene.ts";
-import { dailyNumber, dailyBest, loadHistory, dailyVariant } from "../game/daily.ts";
+import { dailyNumber, dailyVariant, dailySeed } from "../game/daily.ts";
+import { localStore, localBest, competitiveBest, competitiveDailyBest, competitiveProfile, DAILY_RULES } from "../game/records.ts";
 import { bestEver } from "../game/cosmetics.ts";
 import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColor, characterSwatch } from "../game/characters.ts";
 import { MockWalletProvider } from "../wallet/mock.ts";
@@ -29,6 +30,7 @@ export class Menu {
   private session: WalletSession | null = null;
   private profile: PlayerProfile | null = null;
   private isDemo = false;
+  private afterConnect: (() => void) | null = null; // where to go after a successful connect
   private ledger = new RunnerLedger(); // DEMO vault accounting (in-memory, no real funds)
   private vaultComp = 0;
   private vaultEntered = false;
@@ -57,11 +59,13 @@ export class Menu {
 
   private renderHome(): void {
     const n = dailyNumber();
-    const best = bestEver();
-    const dBest = dailyBest();
+    const localB = localBest(); // free-run practice best (local, device-only)
+    const connected = !!(this.session && this.profile);
+    // Competitive "today's best" belongs to the VERIFIED wallet — never free-run data.
+    const dBest = connected ? competitiveDailyBest(this.session!.address) : 0;
     const netLabel = this.isDemo ? "DEMO" : "BITCOIN TESTNET";
-    const walletRow = this.session && this.profile
-      ? `<button id="wallet" class="walletchip connected">👤 ${this.profile.displayName} · ${this.shortAddr(this.session.address)} <span class="net">${netLabel}</span></button>`
+    const walletRow = connected
+      ? `<button id="wallet" class="walletchip connected">👤 ${this.profile!.displayName} · ${this.shortAddr(this.session!.address)} <span class="net">${netLabel}</span></button>`
       : `<button id="wallet" class="walletchip">CONNECT WALLET</button>`;
     this.overlay.className = "show home";
     this.overlay.innerHTML = `
@@ -69,13 +73,13 @@ export class Menu {
         <div class="title"><span class="accent">ARCH</span> RUNNER</div>
         <div class="tagline">RUN THE BLOCK · BREAK THE SCORE</div>
         <div class="playbtns">
-          <button id="daily" class="btn">PLAY DAILY BLOCK #${n}</button>
-          <div class="todaychal">TODAY · ${dailyVariant().name} — ${dailyVariant().goal}</div>
+          <button id="daily" class="btn">DAILY BLOCK #${n}${connected ? "" : " 🔒"}</button>
+          <div class="todaychal">TODAY · ${dailyVariant().name} — ${dailyVariant().goal}${connected ? "" : " · wallet required"}</div>
           <button id="free" class="btn ghost">FREE RUN</button>
         </div>
         <div class="statline">
-          <div><span class="sv">${best.toLocaleString()}</span><span class="sl">BEST SCORE</span></div>
-          <div><span class="sv">${dBest ? dBest.toLocaleString() : "—"}</span><span class="sl">TODAY'S BEST</span></div>
+          <div><span class="sv">${localB ? localB.toLocaleString() : "—"}</span><span class="sl">FREE-RUN BEST</span></div>
+          <div><span class="sv">${connected && dBest ? dBest.toLocaleString() : "—"}</span><span class="sl">DAILY BEST${connected ? "" : " · 🔒"}</span></div>
         </div>
         <div class="nav">
           <button id="howto" class="navbtn">HOW IT WORKS</button>
@@ -90,7 +94,7 @@ export class Menu {
         ${walletRow}
         <div class="footnote">Skill-based. Free to play. Competitions settle on <b>Arch</b> (Bitcoin-native).</div>
       </div>`;
-    this.bind("#daily", () => this.start("daily"));
+    this.bind("#daily", () => this.openDailyBlock());
     this.bind("#free", () => this.start("free"));
     this.bind("#howto", () => this.showHowTo());
     this.bind("#board", () => this.showLeaderboard());
@@ -108,8 +112,60 @@ export class Menu {
     if (el) el.onclick = fn;
   }
 
+  // --- Daily Block is WALLET-GATED: connect → briefing → play (Free Run never gates) ---
+  private openDailyBlock(): void {
+    if (this.session && this.profile) { this.showDailyBrief(); return; }
+    this.overlay.className = "show";
+    this.overlay.innerHTML = `
+      <div class="card modal">
+        <div class="eyebrow">DAILY BLOCK · WALLET REQUIRED</div>
+        <div class="lbnote" style="margin:0 0 16px">Connect your Bitcoin wallet to enter Daily Block, save your competitive progress and verify your player identity. <b>Free Run</b> is always open and needs no wallet.</div>
+        <button id="connect" class="btn">CONNECT WALLET</button>
+        <button id="back" class="btn ghost">BACK</button>
+      </div>`;
+    this.bind("#connect", () => this.connect(() => this.showDailyBrief()));
+    this.bind("#back", () => this.open());
+  }
+
+  private showDailyBrief(): void {
+    if (!this.session || !this.profile) return this.openDailyBlock();
+    const n = dailyNumber();
+    const v = dailyVariant();
+    const addr = this.session.address;
+    const best = competitiveBest(addr);
+    const today = competitiveDailyBest(addr);
+    const seedHex = (dailySeed() >>> 0).toString(16).padStart(8, "0").slice(0, 6);
+    this.overlay.className = "show";
+    this.overlay.innerHTML = `
+      <div class="card modal">
+        <div class="eyebrow">DAILY BLOCK #${n}</div>
+        <div class="dbhead">${v.name}</div>
+        <div class="lbnote" style="margin:4px 0 12px">${v.goal} · everyone runs the <b>same</b> course today (one shared seed) — pure skill. Play any time in the window; scores are compared after.</div>
+        <div class="profgrid">
+          <div><span class="pv">${this.shortAddr(addr)}</span><span class="pl">PLAYER</span></div>
+          <div><span class="pv">${best ? best.toLocaleString() : "—"}</span><span class="pl">YOUR COMP BEST</span></div>
+          <div><span class="pv">${today ? today.toLocaleString() : "—"}</span><span class="pl">TODAY'S BEST</span></div>
+          <div><span class="pv">#${seedHex}</span><span class="pl">SEED · ${DAILY_RULES.physicsVersion.replace("ARCHRUN_", "")}</span></div>
+        </div>
+        <div class="entrybox">
+          <div class="entryrow"><span class="entrylabel">ENTRY</span><span class="entryval">FREE · <span class="demotag">DEMO</span></span></div>
+          <div class="entrynote">On-chain entry &amp; prizes are not live yet (Arch competition program pending deployment). Your run is saved to <b>your wallet's</b> competitive history and marked <b>provisional</b> until the server validator is live. No real funds move.</div>
+        </div>
+        <button id="enter" class="btn">ENTER THE DAILY BLOCK</button>
+        <button id="back" class="btn ghost">BACK</button>
+      </div>`;
+    this.bind("#enter", () => this.start("daily"));
+    this.bind("#back", () => this.open());
+  }
+
+  private postConnect(): void {
+    const after = this.afterConnect; this.afterConnect = null;
+    if (after) after(); else this.open();
+  }
+
   // --- wallet: real injected Bitcoin wallets (UniSat/OKX), with DEMO as a fallback ---
-  private connect(): void {
+  private connect(after?: () => void): void {
+    this.afterConnect = after ?? null;
     const installed = detectWallets();
     const realBtns = installed
       .map((k) => `<button class="btn walletpick" data-kind="${k}">${WALLET_LABEL[k]}${k === "xverse" || k === "leather" ? " (soon)" : ""}</button>`)
@@ -138,7 +194,7 @@ export class Menu {
       this.session = session;
       this.isDemo = isDemo;
       const existing = getProfile(session.address);
-      if (existing) { this.profile = existing; selectCharacter(existing.characterId); this.attract.setColor(selectedCharacterColor()); this.open(); }
+      if (existing) { this.profile = existing; selectCharacter(existing.characterId); this.attract.setColor(selectedCharacterColor()); this.postConnect(); }
       else this.askName(session);
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e);
@@ -161,7 +217,7 @@ export class Menu {
     input.focus();
     const submit = () => {
       this.profile = createProfile(session.address, input.value || "RUNNER", selectedCharacterId());
-      this.open();
+      this.postConnect();
     };
     this.bind("#enter", submit);
     input.onkeydown = (e) => { if (e.key === "Enter") submit(); };
@@ -174,11 +230,29 @@ export class Menu {
   }
 
   private start(mode: Mode): void {
+    // Daily Block cannot start without a verified wallet — route back through the gate.
+    if (mode === "daily" && !(this.session && this.profile)) { this.openDailyBlock(); return; }
     this.attract.stop();
     this.overlay.className = "";
     this.overlay.innerHTML = "";
     this.game?.stop();
-    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, onMenu: () => this.returnToMenu() });
+    // A disposed renderer calls forceContextLoss(), after which the canvas can NEVER get a
+    // fresh WebGL context again. So hand each new run a brand-new canvas (the old one is
+    // removed + GC'd, freeing its context). This fixes the second-run "precision" crash /
+    // black screen when starting Free Run then Daily Block (or restarting via the menu).
+    this.canvas = this.freshGameCanvas();
+    const comp = mode === "daily" && this.session ? { address: this.session.address } : null;
+    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, onMenu: () => this.returnToMenu() });
+  }
+
+  /** Swap the #scene canvas for a fresh one in the same DOM slot (same id/class/styles). */
+  private freshGameCanvas(): HTMLCanvasElement {
+    const old = this.canvas;
+    const next = document.createElement("canvas");
+    next.id = old.id; next.className = old.className;
+    old.parentElement?.insertBefore(next, old);
+    old.remove();
+    return next;
   }
 
   private returnToMenu(): void {
@@ -202,15 +276,26 @@ export class Menu {
 
   private showLeaderboard(): void {
     const n = dailyNumber();
-    const dBest = dailyBest();
-    const hist = loadHistory().slice(0, 8);
-    const rows = hist.length
-      ? hist.map((r, i) => `<div class="lbrow"><span class="lbrank">${i + 1}</span><span class="lbtag">${r.mode === "daily" ? "DAILY" : "FREE"}</span><span class="lbscore">${r.score.toLocaleString()}</span></div>`).join("")
-      : `<div class="lbempty">No runs yet — play the Daily Block to get on the board.</div>`;
+    const connected = !!(this.session && this.profile);
+    // Competitive board = the VERIFIED wallet's accepted Daily Block runs only.
+    const comp = connected ? competitiveProfile(this.session!.address) : null;
+    const accepted = (comp?.history ?? []).filter((h) => h.status === "ACCEPTED").slice(0, 8);
+    const compRows = !connected
+      ? `<div class="lbempty">🔒 Connect your wallet to compete in Daily Block and build a competitive record.</div>`
+      : accepted.length
+        ? accepted.map((r, i) => `<div class="lbrow"><span class="lbrank">${i + 1}</span><span class="lbtag">#${dailyNumber(r.dateKey)}</span><span class="lbscore">${r.score.toLocaleString()}</span></div>`).join("")
+        : `<div class="lbempty">No Daily Block runs yet — enter today's block to get on the board.</div>`;
+    // Free-run practice board = local, device-only, never competitive.
+    const freeHist = localStore().history.slice(0, 5);
+    const freeRows = freeHist.length
+      ? freeHist.map((r) => `<div class="lbrow free"><span class="lbtag">FREE</span><span class="lbscore">${r.score.toLocaleString()}</span></div>`).join("")
+      : `<div class="lbempty small">No free runs yet.</div>`;
     this.modal(`DAILY BLOCK #${n}`, `
-      <div class="lbhead">YOUR LOCAL BOARD${dBest ? ` · TODAY'S BEST ${dBest.toLocaleString()}` : ""}</div>
-      ${rows}
-      <div class="lbnote">A shared global leaderboard arrives with the Arch backend. These are your runs on this device.</div>`);
+      <div class="lbhead">COMPETITIVE BOARD${connected ? ` · YOU ${competitiveDailyBest(this.session!.address) ? competitiveDailyBest(this.session!.address).toLocaleString() : "—"}` : ""}</div>
+      ${compRows}
+      <div class="lbhead" style="margin-top:14px">FREE-RUN PRACTICE · local</div>
+      ${freeRows}
+      <div class="lbnote">Competitive runs are tied to your wallet and marked provisional until the Arch server validator is live. Free-run practice is local only and never counts toward the competition.</div>`);
   }
 
   private showRunner(): void {
@@ -238,7 +323,8 @@ export class Menu {
     const p = this.profile;
     if (!p) return this.open();
     const best = bestEver();
-    const runs = loadHistory().length;
+    const compRuns = this.session ? competitiveProfile(this.session.address).history.filter((h) => h.status === "ACCEPTED").length : 0;
+    const runs = localStore().runs + compRuns;
     const charName = CHARACTERS.find((c) => c.id === p.characterId)?.name ?? "—";
     const have = new Set(unlockedIds());
     const unlocked = have.size;

@@ -252,7 +252,7 @@ export class Renderer {
     this.canvas.addEventListener("webglcontextrestored", () => { this.buildComposer(); this.resize(); this.contextLost = false; });
 
     this.resize();
-    window.addEventListener("resize", () => this.resize());
+    window.addEventListener("resize", this.onWindowResize);
   }
 
   /** (Re)build the post chain — bloom on authored emissive only. Skipped on low/reduced. */
@@ -342,9 +342,15 @@ export class Renderer {
     this.renderFrame();
   }
 
+  private onWindowResize = (): void => { if (!this.contextLost) this.resize(); };
+
   /** Release the WebGL context (called when a game ends, so contexts don't leak
-   *  across menu↔game cycles). */
+   *  across menu↔game cycles). The canvas is single-use after this — forceContextLoss
+   *  means a fresh context can never be acquired on it again, so the caller must
+   *  discard the canvas and hand the next game a new one. */
   dispose(): void {
+    window.removeEventListener("resize", this.onWindowResize);
+    this.composer?.dispose?.();
     this.gl.dispose();
     this.gl.forceContextLoss();
   }

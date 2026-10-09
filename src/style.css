@@ -51,6 +51,10 @@ body {
 .card .unlock { margin-top: 8px; font-size: 11px; letter-spacing: 1px; color: #3ad17a; font-weight: 700; }
 .card .unlock.lvl { color: #9b6bff; }
 .card .unlock.more { margin-top: 4px; font-size: 9px; letter-spacing: 1.5px; color: #8a90a6; font-weight: 600; }
+.card .compstat { margin-top: 10px; font-size: 10.5px; letter-spacing: 1px; font-weight: 700; padding: 7px 10px; border-radius: 8px; }
+.card .compstat.ok { color: #3ad17a; background: rgba(58,209,122,0.1); border: 1px solid rgba(58,209,122,0.3); }
+.card .compstat.dup { color: #8a90a6; background: rgba(255,255,255,0.04); }
+.card .compstat.bad { color: #ff6b5b; background: rgba(255,59,59,0.1); border: 1px solid rgba(255,59,59,0.3); }
 .card .challenge-result { margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
 .card .challenge-result.met { color: #3ad17a; }
 .card .challenge-result.miss { color: #ffb24d; }
@@ -336,6 +340,17 @@ body {
 .profgrid > div { display: flex; flex-direction: column; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.04); }
 .profgrid .pv { font-size: 18px; font-weight: 800; color: #ffd54a; }
 .profgrid .pl { font-size: 9px; letter-spacing: 2px; color: #8a90a6; margin-top: 3px; }
+
+/* Daily Block briefing */
+.dbhead { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #f7931a; margin: 2px 0; }
+.entrybox { margin: 14px 0 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(247,147,26,0.3); background: rgba(247,147,26,0.06); }
+.entryrow { display: flex; justify-content: space-between; align-items: center; }
+.entrylabel { font-size: 10px; letter-spacing: 2px; color: #8a90a6; }
+.entryval { font-size: 14px; font-weight: 800; color: #eef1f8; }
+.entryval .demotag { font-size: 10px; letter-spacing: 1px; color: #ffb020; border: 1px solid rgba(255,176,32,0.5); border-radius: 6px; padding: 2px 6px; margin-left: 4px; }
+.entrynote { font-size: 10px; color: #8a90a6; line-height: 1.5; margin-top: 8px; }
+.lbrow.free { opacity: 0.85; }
+.lbempty.small { font-size: 10px; padding: 6px 0; }
 
 /* Achievements gallery — the real home for every "UNLOCKED" badge. */
 .plabel { font-size: 10px; letter-spacing: 3px; color: #8a90a6; margin: 16px 0 8px; text-align: center; }
