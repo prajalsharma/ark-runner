@@ -12,9 +12,10 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { RunSim } from "./sim.ts";
 import { RunnerRig } from "./runner-rig.ts";
 import { ChaserRig } from "./chaser.ts";
+import { ObstacleKit } from "./obstacles.ts";
 import { CityScape } from "./cityscape.ts";
 import { reducedMotion, quality } from "./settings.ts";
-import { LANE_WIDTH, OBSTACLE_H, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
+import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
 const COL = {
   bg: 0x07080c, bgBlock: 0x1a0a2e, ground: 0x12141c, lane: 0x1d2130,
@@ -61,7 +62,7 @@ export class Renderer {
   private menace = 0;          // eased 0..1 how hard the Auditor is bearing down
   private lastNearMiss = 0;    // to detect a fresh near-miss → surge
   private donut: THREE.Group;
-  private obPool: THREE.Mesh[] = [];
+  private obstacles!: ObstacleKit;
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
   private streaks: THREE.Mesh[] = [];
@@ -77,6 +78,7 @@ export class Renderer {
   private canvas: HTMLCanvasElement;
   private composer: EffectComposer | null = null; // post-processing (bloom); null = direct render
   private bloom: UnrealBloomPass | null = null;
+  private contextLost = false;
   private key!: THREE.DirectionalLight;
 
   private camX = 0;          // eased camera x (shake is added on top)
@@ -106,11 +108,12 @@ export class Renderer {
 
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.gl.setClearColor(COL.bg);
-    // Cinematic colour + tone pipeline (AAA pass): sRGB out, filmic tone mapping so
-    // bright emissive rolls off instead of clipping to flat white.
+    // Cinematic colour + tone pipeline (AAA pass): sRGB out, Neutral (Khronos PBR Neutral)
+    // tone mapping — rolls off bright emissive without the ACES orange→salmon desaturation,
+    // so true Bitcoin orange (#F7931A) still reads as Bitcoin orange on screen.
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    this.gl.toneMapping = THREE.ACESFilmicToneMapping;
-    this.gl.toneMappingExposure = 1.15;
+    this.gl.toneMapping = THREE.NeutralToneMapping;
+    this.gl.toneMappingExposure = 1.1;
 
     // Shadows ground the runner and hazards (biggest "flat → real" lever). Off on low
     // quality / reduced motion to protect weak devices.
@@ -225,13 +228,10 @@ export class Renderer {
     this.rig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.scene.add(this.rig.group);
 
-    // Pools.
-    const obGeo = new THREE.BoxGeometry(1, 1, 1);
-    for (let i = 0; i < 28; i++) {
-      const m = new THREE.Mesh(obGeo, new THREE.MeshStandardMaterial({ roughness: 0.5 }));
-      m.castShadow = true; m.receiveShadow = true;
-      m.visible = false; this.obPool.push(m); this.scene.add(m);
-    }
+    // Authored hazard props (per-type silhouette + telegraph), pooled.
+    this.obstacles = new ObstacleKit(this.scene);
+
+    // Coin pool.
     // Bitcoin coins: orange disc with a ₿ face (texture on the caps), facing the camera.
     const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.08, 24);
     const btcTex = makeBitcoinTexture();
@@ -243,18 +243,25 @@ export class Renderer {
       m.visible = false; this.enPool.push(m); this.scene.add(m);
     }
 
-    // Post-processing: bloom on authored emissive only (coins, flip gates, Auditor eye,
-    // hazard edges, city windows). Finishing pass — skipped on low quality / reduced motion.
-    if (!this.lowQ && !this.reduced) {
-      this.composer = new EffectComposer(this.gl);
-      this.composer.addPass(new RenderPass(this.scene, this.cam));
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.7, 0.72);
-      this.composer.addPass(this.bloom);
-      this.composer.addPass(new OutputPass());
-    }
+    this.buildComposer();
+
+    // WebGL context-loss recovery. Two canvases (menu + game) each hold a context; on a
+    // loaded machine one can be dropped mid-run → a black screen. Recover instead of dying.
+    this.canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); this.contextLost = true; });
+    this.canvas.addEventListener("webglcontextrestored", () => { this.buildComposer(); this.resize(); this.contextLost = false; });
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+  }
+
+  /** (Re)build the post chain — bloom on authored emissive only. Skipped on low/reduced. */
+  private buildComposer(): void {
+    if (this.lowQ || this.reduced) { this.composer = null; this.bloom = null; return; }
+    this.composer = new EffectComposer(this.gl);
+    this.composer.addPass(new RenderPass(this.scene, this.cam));
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.7, 0.72);
+    this.composer.addPass(this.bloom);
+    this.composer.addPass(new OutputPass());
   }
 
   resize(): void {
@@ -265,12 +272,16 @@ export class Renderer {
     this.gl.setSize(w, h, false);
     this.cam.aspect = w / h;
     this.cam.updateProjectionMatrix();
-    if (this.composer) { this.composer.setPixelRatio(dpr); this.composer.setSize(w, h); }
+    // Bloom render targets are the heaviest GPU cost — cap them at a lower ratio so two
+    // live contexts (menu + game) don't exhaust memory and drop one to black.
+    const pdpr = Math.min(1.5, dpr);
+    if (this.composer) { this.composer.setPixelRatio(pdpr); this.composer.setSize(w, h); }
     if (this.bloom) this.bloom.setSize(w, h);
   }
 
   /** Render through the post chain when present, else straight to screen. */
   private renderFrame(): void {
+    if (this.contextLost) return; // GPU context gone; wait for restore (no black-on-crash)
     if (this.composer && !this.perf) this.composer.render();
     else this.gl.render(this.scene, this.cam);
   }
@@ -299,7 +310,7 @@ export class Renderer {
     // Trip/stumble: pitch the whole figure forward (gait still flails underneath).
     this.rig.group.rotation.x = st.runnerPitch ?? 0;
     // no sim → hide all gameplay pools
-    for (const m of this.obPool) m.visible = false;
+    this.obstacles.beginFrame(); this.obstacles.finish();
     for (const m of this.enPool) m.visible = false;
     for (const g of this.gatePool) g.visible = false;
     for (const p of this.parts) p.m.visible = false;
@@ -466,26 +477,15 @@ export class Renderer {
       (m.material as THREE.MeshBasicMaterial).opacity = 0.5 * this.blockLevel;
     }
 
-    // Obstacles.
+    // Obstacles — authored hazard props, placed per type from their pools.
     const v = sim.view();
-    let oi = 0;
+    this.obstacles.beginFrame();
     for (const o of v.obstacles) {
-      if (oi >= this.obPool.length) break;
-      const m = this.obPool[oi++]!;
       const localZ = -(o.z - d);
-      const h = OBSTACLE_H[o.type];
-      const mat = m.material as THREE.MeshStandardMaterial;
-      if (o.type === "WALL") { m.scale.set(LANE_WIDTH * 0.82, h, 1.2); m.position.set(o.lane * LANE_WIDTH, h / 2, localZ); mat.color.setHex(COL.wall); mat.emissive.setHex(0x3a0000); }
-      else if (o.type === "LOW") { m.scale.set(LANE_WIDTH * 0.9, h, 1.0); m.position.set(o.lane * LANE_WIDTH, h / 2, localZ); mat.color.setHex(COL.low); mat.emissive.setHex(0x3a2200); }
-      else if (o.type === "HIGH") { m.scale.set(LANE_WIDTH * 0.9, 0.5, 1.0); m.position.set(o.lane * LANE_WIDTH, 2.3, localZ); mat.color.setHex(COL.high); mat.emissive.setHex(0x2a1550); }
-      else { // PIT — a GLOWING red hazard gap so it's unmistakable (was near-black = invisible). Jump it.
-        m.scale.set(LANE_WIDTH * 0.92, 0.12, 2.8); m.position.set(o.lane * LANE_WIDTH, 0.06, localZ);
-        mat.color.setHex(0x2a0608); mat.emissive.setHex(0xff3322);
-      }
-      mat.emissiveIntensity = (o.type === "PIT" ? 1.2 : 0.5) + this.blockLevel * 0.6;
-      m.visible = localZ > -62 && localZ < 10;
+      if (localZ > -62 && localZ < 10) this.obstacles.show(o.type, o.lane, localZ);
     }
-    for (; oi < this.obPool.length; oi++) this.obPool[oi]!.visible = false;
+    this.obstacles.finish();
+    this.obstacles.pulse(nowMs, this.blockLevel);
 
     // Energy orbs (spin for life).
     let ei = 0;
