@@ -18,7 +18,7 @@ import { reducedMotion, quality } from "./settings.ts";
 import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
 const COL = {
-  bg: 0x07080c, bgBlock: 0x1a0a2e, ground: 0x12141c, lane: 0x1d2130,
+  bg: 0x1a1530, bgBlock: 0x1a0a2e, ground: 0x0e1018, lane: 0x1d2130, // bg = dusk haze (towers fade into the horizon, not black)
   player: 0xff7a1a, playerBlock: 0xb86bff, playerFlip: 0xffd54a,
   wall: 0xff3b3b, low: 0xffaa33, high: 0x9b6bff, pit: 0x04040a,
   energy: 0xf7931a, tick: 0x2a2f42, streak: 0xffb24d, gate: 0xffd54a, // energy = Bitcoin orange
@@ -101,10 +101,10 @@ export class Renderer {
     this.playerColor = playerColor;
     this.cPlayer = new THREE.Color(playerColor);
     this.scene.background = new THREE.Color(COL.bg);
-    this.fog = new THREE.Fog(COL.bg, 24, 62);
+    this.fog = new THREE.Fog(COL.bg, 26, 82); // longer throw → the skyline recedes into dusk
     this.scene.fog = this.fog;
 
-    this.cam = new THREE.PerspectiveCamera(FOV_BASE, 1, 0.1, 200);
+    this.cam = new THREE.PerspectiveCamera(FOV_BASE, 1, 0.1, 600); // far enough for the sky dome
     this.cam.position.set(0, 5.4, 9);
 
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -161,6 +161,22 @@ export class Renderer {
       );
       div.position.set(x, -0.05, -160);
       this.scene.add(div);
+    }
+    const roadEdge = LANE_WIDTH * 1.5 + 0.15; // ±3.45
+    // Glowing road-edge strips — the lane boundary reads, and gives the street a kerb line.
+    for (const sx of [-1, 1]) {
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.06, 400),
+        new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: COL.energy, emissiveIntensity: 0.6, roughness: 0.5 }),
+      );
+      edge.position.set(sx * roadEdge, 0.02, -160);
+      this.scene.add(edge);
+      // Raised sidewalk/curb + a wide pavement plane out to the building line (fills the
+      // old black gap beside the road so the runner is on a street, not a floating strip).
+      const curb = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.26, 400), new THREE.MeshStandardMaterial({ color: 0x15171f, roughness: 0.9 }));
+      curb.position.set(sx * (roadEdge + 0.2), 0.0, -160); curb.receiveShadow = true; this.scene.add(curb);
+      const pave = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.18, 400), new THREE.MeshStandardMaterial({ color: 0x0c0e15, roughness: 1 }));
+      pave.position.set(sx * (roadEdge + 2.8), -0.06, -160); pave.receiveShadow = true; this.scene.add(pave);
     }
 
     // Scrolling floor ticks (motion cue).
@@ -303,7 +319,7 @@ export class Renderer {
   /** Render one scripted cinematic frame (the opening cutscene drives this). */
   cutsceneFrame(nowMs: number, st: CineState): void {
     (this.scene.background as THREE.Color).copy(this.cBg);
-    this.fog.color.copy(this.cBg); this.fog.far = 72;
+    this.fog.color.copy(this.cBg); this.fog.far = 92;
     this.city.update(st.distance);
     this.rig.setColorObj(this.cPlayer);
     const ry = st.runnerY ?? 0;
@@ -439,7 +455,7 @@ export class Renderer {
     this.cTmp.copy(this.cBg).lerp(this.cBgBlock, this.blockLevel);
     (this.scene.background as THREE.Color).copy(this.cTmp);
     this.fog.color.copy(this.cTmp);
-    this.fog.far = 62 - 8 * this.blockLevel; // tighter tunnel = faster feel
+    this.fog.far = 82 - 10 * this.blockLevel; // tighter tunnel = faster feel
 
     // Camera eases toward the player's lane; shake is a transient offset on top.
     this.camX += (sim.laneX * 0.35 - this.camX) * 0.1;

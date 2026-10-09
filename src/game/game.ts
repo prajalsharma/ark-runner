@@ -289,7 +289,7 @@ export class Game {
 
   stop(): void {
     cancelAnimationFrame(this.raf);
-    this.audio.stopMusic();
+    this.audio.dispose(); // close the AudioContext so the hum/pad don't leak across runs
     this.detach();
     this.detachKeys();
     this.sysbar.remove();
