@@ -85,6 +85,19 @@ function makeShadowTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+/** A lightcycle-style trail ribbon: bright head → transparent tail (alpha gradient). */
+function makeTrailTexture(): THREE.Texture {
+  if (typeof document === "undefined") return new THREE.Texture();
+  const c = document.createElement("canvas"); c.width = 16; c.height = 128;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createLinearGradient(0, 0, 0, 128);
+  g.addColorStop(0, "rgba(255,255,255,0)");    // tail (transparent)
+  g.addColorStop(0.75, "rgba(255,255,255,0.5)");
+  g.addColorStop(1, "rgba(255,255,255,1)");    // head (at the runner)
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 16, 128);
+  return new THREE.CanvasTexture(c);
+}
+
 /** The payment terminal screen: "PAYMENT / PENDING" in amber on dark — the whole joke. */
 function makeTerminalTexture(): THREE.Texture {
   if (typeof document === "undefined") return new THREE.Texture();
@@ -126,6 +139,7 @@ export class Renderer {
   private donut: THREE.Group;
   private bakery!: THREE.Group;
   private heroShadow!: THREE.Mesh;
+  private heroTrail!: THREE.Mesh;
   private obstacles!: ObstacleKit;
   private enPool: THREE.Mesh[] = [];
   private readonly TICKS = 40;
@@ -335,6 +349,16 @@ export class Renderer {
     this.heroShadow.position.set(0, 0.04, 0);
     this.scene.add(this.heroShadow);
 
+    // Tron light-trail: a cyan ribbon on the grid behind the runner, additive so it glows;
+    // length + brightness scale with speed and flare in Block Run. Head at the feet, tail back.
+    this.heroTrail = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.62, 6.5),
+      new THREE.MeshBasicMaterial({ map: makeTrailTexture(), color: 0x19e5ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    this.heroTrail.rotation.x = -Math.PI / 2; // lie flat on the grid
+    this.heroTrail.position.set(0, 0.05, 3.3); // extends behind the runner (+z, toward camera)
+    this.scene.add(this.heroTrail);
+
     // Player hero. Default is the authored procedural jointed runner (RunnerRig). The rigged
     // GLB Path-B hero (HeroGLB) is opt-in via heroModel() and is CODE-SPLIT — its GLTFLoader +
     // decoder only load when selected, keeping the default bundle lean. HeroGLB itself falls
@@ -507,7 +531,8 @@ export class Renderer {
       this.donut.rotation.set(0.35, nowMs / 700, 0);
     } else this.donut.visible = false;
     this.bakery.visible = !!st.bakery;
-    this.heroShadow.visible = false; // no gameplay contact shadow during the cutscene
+    this.heroShadow.visible = false; // no gameplay contact shadow / trail during the cutscene
+    this.heroTrail.visible = false;
     this.cam.fov = st.fov ?? 52;
     const sk = st.shake ?? 0;
     const sx = sk ? (Math.random() - 0.5) * sk : 0;
@@ -612,15 +637,20 @@ export class Renderer {
     }
     this.lastPlayerX = sim.laneX;
     this.lastPlayerY = (sim.sliding ? 0.5 : 0.9) + sim.y;
+    const speedFrac = Math.min(1, Math.max(0, (sim.speed - START_SPEED) / (MAX_SPEED * BLOCK_SPEED_MULT - START_SPEED)));
     // Contact shadow: under the runner's lane, shrinking + fading as it jumps higher.
     const jumpF = Math.min(1, Math.max(0, sim.y / 2));
     this.heroShadow.visible = true;
     this.heroShadow.position.set(sim.laneX, 0.04, 0);
     this.heroShadow.scale.setScalar(1 - jumpF * 0.45);
     (this.heroShadow.material as THREE.MeshBasicMaterial).opacity = 0.5 * (1 - jumpF * 0.6);
+    // Light-trail: follows the lane, fades when airborne, flares in Block Run / Hyper Flow.
+    this.heroTrail.visible = true;
+    this.heroTrail.position.set(sim.laneX, 0.05, 3.3);
+    const trailBase = 0.35 + speedFrac * 0.4 + this.blockLevel * 0.4 + (sim.hyperFlow ? 0.3 : 0);
+    (this.heroTrail.material as THREE.MeshBasicMaterial).opacity = Math.min(0.95, trailBase) * (1 - jumpF * 0.7);
 
     // FOV ramps with speed (and a kick during Block Run) — the sense of pace.
-    const speedFrac = Math.min(1, Math.max(0, (sim.speed - START_SPEED) / (MAX_SPEED * BLOCK_SPEED_MULT - START_SPEED)));
     const targetFov = FOV_BASE + (FOV_MAX - FOV_BASE) * speedFrac + FOV_BLOCK * this.blockLevel;
     if (Math.abs(this.cam.fov - targetFov) > 0.05) { this.cam.fov += (targetFov - this.cam.fov) * 0.1; this.cam.updateProjectionMatrix(); }
 

@@ -58,6 +58,9 @@ export class RunnerRig {
   private hoodZ = 0; private hoodZV = 0;         // cowl roll sway
   private packX = 0; private packXV = 0;         // pack pitch sway
   private packZ = 0; private packZV = 0;         // pack roll sway
+  private prevGrounded = true;                   // land/takeoff edge detect
+  private squash = 0;                            // landing squash (decays)
+  private stretch = 0;                           // takeoff stretch (decays)
   private readonly cTmp = new THREE.Color();
 
   constructor(color: number) {
@@ -213,6 +216,13 @@ export class RunnerRig {
     this.airF = lerp(this.airF, st.grounded ? 0 : 1, st.grounded ? 0.3 : 0.5);
     this.slideF = lerp(this.slideF, st.sliding ? 1 : 0, st.sliding ? 0.55 : 0.35);
 
+    // Squash & stretch: stretch up on takeoff, squash flat on landing (both spring back).
+    if (st.grounded && !this.prevGrounded) this.squash = 0.34;
+    if (!st.grounded && this.prevGrounded) this.stretch = 0.22;
+    this.prevGrounded = st.grounded;
+    this.squash = lerp(this.squash, 0, 0.22);
+    this.stretch = lerp(this.stretch, 0, 0.3);
+
     const run = (1 - this.airF) * (1 - this.slideF);
     const p = st.phase;
     const s = Math.sin(p);
@@ -256,7 +266,7 @@ export class RunnerRig {
     // ---- TURN-LEAN: bank + yaw into a lane change (spring toward a velocity target) ----
     [this.leanZ, this.leanV] = spring(this.leanZ, this.leanV, -vx * 1.6, 0.22, 0.55);
     [this.yaw, this.yawV] = spring(this.yaw, this.yawV, -vx * 0.9, 0.22, 0.55);
-    this.group.rotation.y = this.yaw;
+    this.group.rotation.y = Math.PI + this.yaw; // base facing (−z, back to camera) + turn-lean yaw
 
     // ---- SECONDARY MOTION: cowl + ledger-pack lag and swing (spring-damper) ----
     // Pack: pitches from vertical velocity (lags on jump, swings on land), rolls from lateral.
@@ -274,6 +284,10 @@ export class RunnerRig {
     this.body.rotation.x = lerp(0.16, -0.05, this.airF * (1 - riseF)) + this.slideF * 1.15;
     this.body.rotation.z = this.leanZ * (1 - this.slideF);
     this.group.position.y = st.y + bob;
-    this.group.scale.y = lerp(1, 0.56, this.slideF);
+    // Squash & stretch on top of the slide crouch: tall+thin on takeoff, short+wide on landing.
+    const baseY = lerp(1, 0.56, this.slideF);
+    const sy = baseY * (1 - this.squash + this.stretch);
+    const sxz = 1 + this.squash * 0.6 - this.stretch * 0.28;
+    this.group.scale.set(sxz, sy, sxz);
   }
 }
