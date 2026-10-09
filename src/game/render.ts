@@ -5,6 +5,10 @@
  * recolours the world and streaks past, Hyper Flow intensifies the glow.
  */
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { RunSim } from "./sim.ts";
 import { RunnerRig } from "./runner-rig.ts";
 import { CityScape } from "./cityscape.ts";
@@ -68,6 +72,9 @@ export class Renderer {
   private perf = false; // runtime auto-downgrade when frames are slow
   private fog: THREE.Fog;
   private canvas: HTMLCanvasElement;
+  private composer: EffectComposer | null = null; // post-processing (bloom); null = direct render
+  private bloom: UnrealBloomPass | null = null;
+  private key!: THREE.DirectionalLight;
 
   private camX = 0;          // eased camera x (shake is added on top)
   private shake = 0;         // decays every frame
@@ -96,14 +103,41 @@ export class Renderer {
 
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.gl.setClearColor(COL.bg);
+    // Cinematic colour + tone pipeline (AAA pass): sRGB out, filmic tone mapping so
+    // bright emissive rolls off instead of clipping to flat white.
+    this.gl.outputColorSpace = THREE.SRGBColorSpace;
+    this.gl.toneMapping = THREE.ACESFilmicToneMapping;
+    this.gl.toneMappingExposure = 1.15;
 
-    this.scene.add(new THREE.AmbientLight(0x8899cc, 0.7));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(4, 12, 6);
-    this.scene.add(key);
-    const rim = new THREE.PointLight(0xff7a1a, 0.8, 40);
-    rim.position.set(0, 3, 2);
+    // Shadows ground the runner and hazards (biggest "flat → real" lever). Off on low
+    // quality / reduced motion to protect weak devices.
+    const shadowsOn = !this.lowQ && !this.reduced;
+    this.gl.shadowMap.enabled = shadowsOn;
+    this.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Lighting rig: fill (legibility) + key (form, casts shadow) + warm rim (separates
+    // the runner from the dark city) + cool bounce from the ground plane.
+    this.scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x0a0c12, 0.55));
+    this.scene.add(new THREE.AmbientLight(0x55607a, 0.35));
+    this.key = new THREE.DirectionalLight(0xfff0dc, 1.45);
+    this.key.position.set(6, 16, 8);
+    if (shadowsOn) {
+      this.key.castShadow = true;
+      this.key.shadow.mapSize.set(1024, 1024);
+      const sc = this.key.shadow.camera;
+      sc.near = 1; sc.far = 80; sc.left = -12; sc.right = 12; sc.top = 14; sc.bottom = -30;
+      this.key.shadow.bias = -0.0006;
+      this.key.shadow.normalBias = 0.02;
+      this.key.target.position.set(0, 0, -14);
+      this.scene.add(this.key.target);
+    }
+    this.scene.add(this.key);
+    const rim = new THREE.DirectionalLight(0xff8a3a, 0.7);
+    rim.position.set(-7, 5, -6); // back-right, warm — rim-lights the runner's silhouette
     this.scene.add(rim);
+    const practical = new THREE.PointLight(0xff7a1a, 0.6, 40);
+    practical.position.set(0, 3, 2);
+    this.scene.add(practical);
 
     // Corridor floor + lane dividers.
     const floor = new THREE.Mesh(
@@ -111,6 +145,7 @@ export class Renderer {
       new THREE.MeshStandardMaterial({ color: COL.ground, roughness: 0.95 }),
     );
     floor.position.set(0, -0.15, -160);
+    floor.receiveShadow = true;
     this.scene.add(floor);
     for (const x of [-LANE_WIDTH / 2, LANE_WIDTH / 2]) {
       const div = new THREE.Mesh(
@@ -188,12 +223,14 @@ export class Renderer {
 
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
+    this.rig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.scene.add(this.rig.group);
 
     // Pools.
     const obGeo = new THREE.BoxGeometry(1, 1, 1);
     for (let i = 0; i < 28; i++) {
       const m = new THREE.Mesh(obGeo, new THREE.MeshStandardMaterial({ roughness: 0.5 }));
+      m.castShadow = true; m.receiveShadow = true;
       m.visible = false; this.obPool.push(m); this.scene.add(m);
     }
     // Bitcoin coins: orange disc with a ₿ face (texture on the caps), facing the camera.
@@ -207,6 +244,16 @@ export class Renderer {
       m.visible = false; this.enPool.push(m); this.scene.add(m);
     }
 
+    // Post-processing: bloom on authored emissive only (coins, flip gates, Auditor eye,
+    // hazard edges, city windows). Finishing pass — skipped on low quality / reduced motion.
+    if (!this.lowQ && !this.reduced) {
+      this.composer = new EffectComposer(this.gl);
+      this.composer.addPass(new RenderPass(this.scene, this.cam));
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.7, 0.72);
+      this.composer.addPass(this.bloom);
+      this.composer.addPass(new OutputPass());
+    }
+
     this.resize();
     window.addEventListener("resize", () => this.resize());
   }
@@ -214,10 +261,19 @@ export class Renderer {
   resize(): void {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
-    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    const dpr = Math.min(2, window.devicePixelRatio);
+    this.gl.setPixelRatio(dpr);
     this.gl.setSize(w, h, false);
     this.cam.aspect = w / h;
     this.cam.updateProjectionMatrix();
+    if (this.composer) { this.composer.setPixelRatio(dpr); this.composer.setSize(w, h); }
+    if (this.bloom) this.bloom.setSize(w, h);
+  }
+
+  /** Render through the post chain when present, else straight to screen. */
+  private renderFrame(): void {
+    if (this.composer && !this.perf) this.composer.render();
+    else this.gl.render(this.scene, this.cam);
   }
 
   /** Runtime perf downgrade (set by the loop when frames are consistently slow). */
@@ -269,7 +325,7 @@ export class Renderer {
     this.cam.position.set(st.cam[0] + sx, st.cam[1] + sy, st.cam[2]);
     this.cam.lookAt(st.look[0], st.look[1], st.look[2]);
     this.cam.updateProjectionMatrix();
-    this.gl.render(this.scene, this.cam);
+    this.renderFrame();
   }
 
   /** Release the WebGL context (called when a game ends, so contexts don't leak
@@ -447,6 +503,6 @@ export class Renderer {
     for (; gi < this.gatePool.length; gi++) this.gatePool[gi]!.visible = false;
 
     this.updateParticles(dt);
-    this.gl.render(this.scene, this.cam);
+    this.renderFrame();
   }
 }
