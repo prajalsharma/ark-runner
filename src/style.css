@@ -251,6 +251,13 @@ body {
   #coins { top: calc(max(12px, env(safe-area-inset-top)) + 44px); font-size: 15px; padding: 5px 9px; }
 }
 
+/* Impact flash on a fatal hit */
+#impactflash { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 0;
+  background: radial-gradient(120% 90% at 50% 50%, transparent 40%, rgba(255,40,40,0.55) 100%); }
+#impactflash.fire { animation: impactflash 0.5s ease-out; }
+@keyframes impactflash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #impactflash.fire { animation: none; } }
+
 /* Custom share card (not the native OS sheet) */
 #sharepop { position: absolute; inset: 0; z-index: 12; display: none; align-items: center; justify-content: center; background: rgba(7,8,12,0.78); }
 #sharepop.show { display: flex; }

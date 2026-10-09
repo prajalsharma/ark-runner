@@ -212,7 +212,7 @@ export class Game {
     if (s.blockRuns > p.blockRuns) { this.audio.play("blockstart"); this.hud.toast("BLOCK RUN", "block"); }
     if (s.flipActive && !p.flipActive) { this.audio.play("flip"); this.hud.toast("ARCH FLIP ×3", "flip"); }
     if (s.flips > p.flips) { this.audio.play("flipbank"); this.hud.toast("FLIP BANKED", "flip"); this.renderer.addShake(0.1); this.renderer.burst("flip"); }
-    if (!s.alive && p.alive) { this.audio.play("death"); this.renderer.addShake(1.0); this.renderer.burst("death"); }
+    if (!s.alive && p.alive) { this.audio.play("death"); this.renderer.addShake(1.0); this.renderer.burst("death"); this.hud.flashImpact(); }
     this.prev = this.snapshot();
   }
 

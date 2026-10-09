@@ -31,6 +31,7 @@ export class HUD {
   private coinsNumEl: HTMLElement;
   private debugEl: HTMLElement;
   private shareEl: HTMLElement;
+  private flashEl!: HTMLElement;
   private toastTimer = 0;
   private coachTimer = 0;
   private lastCoins = 0;
@@ -54,6 +55,16 @@ export class HUD {
     this.shareEl = document.createElement("div");
     this.shareEl.id = "sharepop";
     app.appendChild(this.shareEl);
+    this.flashEl = document.createElement("div");
+    this.flashEl.id = "impactflash";
+    app.appendChild(this.flashEl);
+  }
+
+  /** A quick red impact vignette on a fatal hit — reads as a controlled, legible death. */
+  flashImpact(): void {
+    this.flashEl.classList.remove("fire");
+    void this.flashEl.offsetWidth; // restart the animation
+    this.flashEl.classList.add("fire");
   }
 
   /** Custom in-app share card (never the native OS share sheet). */
