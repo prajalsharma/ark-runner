@@ -18,6 +18,7 @@ import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts"
 import { soundOn, setSound, reducedMotion, setReducedMotion, quality, setQuality } from "../game/settings.ts";
 import { getNetwork, setNetwork, type NetworkMode } from "../chain/network.ts";
 import { fetchTestnetStatus } from "../chain/rpc.ts";
+import { RunnerLedger } from "../economy/ledger.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
@@ -28,6 +29,9 @@ export class Menu {
   private session: WalletSession | null = null;
   private profile: PlayerProfile | null = null;
   private isDemo = false;
+  private ledger = new RunnerLedger(); // DEMO vault accounting (in-memory, no real funds)
+  private vaultComp = 0;
+  private vaultEntered = false;
 
   constructor(private canvas: HTMLCanvasElement, private hud: HTMLElement, private overlay: HTMLElement) {}
 
@@ -77,7 +81,8 @@ export class Menu {
           <button id="board" class="navbtn">LEADERBOARD</button>
           <button id="runner" class="navbtn">RUNNER</button>
           <button id="story" class="navbtn">STORY</button>
-          <button id="economy" class="navbtn">ECONOMY</button>
+          <button id="economy" class="navbtn">ARCH NET</button>
+          <button id="vault" class="navbtn">VAULT</button>
           <button id="settings" class="navbtn">SETTINGS</button>
           ${this.profile ? `<button id="profile" class="navbtn">PROFILE</button>` : ""}
         </div>
@@ -91,6 +96,7 @@ export class Menu {
     this.bind("#runner", () => this.showRunner());
     this.bind("#story", () => this.playIntro());
     this.bind("#economy", () => this.showEconomy());
+    this.bind("#vault", () => this.showVault());
     this.bind("#settings", () => this.showSettings());
     this.bind("#profile", () => this.showProfile());
     this.bind("#wallet", () => (this.session ? this.disconnect() : this.connect()));
@@ -281,6 +287,37 @@ export class Menu {
       const grid = this.overlay.querySelector("#livegrid");
       if (grid) grid.innerHTML = `<div class="netempty small">Testnet unreachable right now — try again shortly.</div>`;
     });
+  }
+
+  private showVault(): void {
+    const me = "me";
+    const comp = `demo-${this.vaultComp}`;
+    const bal = this.ledger.balanceOf(me);
+    const pool = this.ledger.prizePool(comp);
+    const v = this.ledger.view();
+    const n = (b: bigint): string => Number(b).toLocaleString();
+    const canEnter = bal >= 2_000n && !this.vaultEntered;
+    const canSettle = pool > 0n;
+    this.modal("RUNNER VAULT · DEMO", `
+      <div class="lbnote" style="margin:0 0 10px"><b>DEMO · no real funds.</b> This drives the real four-bucket accounting (<code>RunnerLedger</code>): your vault stays yours, entries fund the prize pool, winnings return to your vault. Solvency is enforced. On testnet this settles via Arch once the program is deployed.</div>
+      <div class="profgrid">
+        <div><span class="pv">${n(bal)}</span><span class="pl">YOUR VAULT · sats</span></div>
+        <div><span class="pv">${n(pool)}</span><span class="pl">PRIZE POOL</span></div>
+        <div><span class="pv">${n(v.reserve)}</span><span class="pl">RESERVE</span></div>
+        <div><span class="pv">${n(v.protocolRevenue)}</span><span class="pl">PROTOCOL FEE</span></div>
+      </div>
+      <div class="vaultbtns">
+        <button id="vd" class="btn ghost small">+10,000 (DEMO FAUCET)</button>
+        <button id="ve" class="btn ghost small" ${canEnter ? "" : "disabled"}>ENTER DAILY BLOCK · 2,000</button>
+        <button id="vs" class="btn ghost small" ${canSettle ? "" : "disabled"}>WIN &amp; SETTLE (DEMO)</button>
+        <button id="vw" class="btn ghost small" ${bal > 0n ? "" : "disabled"}>WITHDRAW ALL</button>
+      </div>
+      <div class="lbnote" style="color:#3ad17a">✓ SOLVENT — buckets (${n(v.principalTotal + v.prizeTotal + v.reserve + v.protocolRevenue)}) = assets held (${n(v.assets)}). No invented money, no yield.</div>`);
+    const act = (fn: () => void): void => { try { fn(); this.ledger.assertSolvent(); } catch { /* guard */ } this.showVault(); };
+    this.bind("#vd", () => act(() => this.ledger.deposit(me, 10_000n)));
+    this.bind("#ve", () => act(() => { this.ledger.enter(comp, me, 2_000n, { feeRateBps: 500, reserveBps: 1000 }); this.vaultEntered = true; }));
+    this.bind("#vs", () => act(() => { this.ledger.settle(comp, [{ user: me, amount: this.ledger.prizePool(comp) }]); this.vaultComp++; this.vaultEntered = false; }));
+    this.bind("#vw", () => act(() => this.ledger.withdraw(me, this.ledger.balanceOf(me))));
   }
 
   private showSettings(): void {

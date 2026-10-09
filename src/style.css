@@ -326,4 +326,7 @@ body {
 .netempty .sub { font-size: 12px; font-weight: 400; letter-spacing: 1px; color: #aab0c4; margin-top: 10px; }
 .netempty.small { font-size: 13px; font-weight: 400; letter-spacing: 1px; color: #aab0c4; grid-column: 1 / -1; padding: 18px; }
 .card code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #ff9b4d; }
+.vaultbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.vaultbtns .btn { margin-top: 0; }
+.vaultbtns .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .livebadge .dot { animation: none; } }
