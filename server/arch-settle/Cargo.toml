@@ -1,0 +1,21 @@
+[package]
+name = "arch-settle"
+version = "0.1.0"
+edition = "2021"
+description = "ARCH RUNNER settlement signer — the ONLY component that holds the settlement-authority key and signs on-chain create_match / settle_match (arch_sdk 0.12, the v0.12-correct client). Invoked by the Node settlement service as a child process; the key is passed via ARCH_SETTLEMENT_AUTHORITY_SECRET (a file path or 64-hex), never on the command line."
+
+[[bin]]
+name = "arch-settle"
+path = "src/main.rs"
+
+[dependencies]
+# Path points at this repo's program crate so the instruction ABI can never drift.
+ark-runner-escrow = { path = "../../program", features = ["no-entrypoint"] }
+arch_sdk = "=0.12.0"
+apl-token = { version = "=0.12.0", features = ["no-entrypoint"] }
+apl-associated-token-account = { version = "=0.12.0", features = ["no-entrypoint"] }
+borsh = { version = "1.5.1", features = ["derive"] }
+bitcoin = "=0.32.7"
+hex = "0.4"
+rand = "0.8"
+sha2 = "0.10"

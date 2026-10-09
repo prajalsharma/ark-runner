@@ -69,8 +69,11 @@ test("reclaim refunds the entry before settlement and never after", async () => 
   await assert.rejects(p.reclaim("c", "b"), /after settlement/);
 });
 
-test("the default provider is Mock; Arch is honest (throws, never fakes)", async () => {
+test("the default provider is Mock; Arch is honest (reads real, never settles without the server)", async () => {
   assert.ok(makeSettlementProvider() instanceof MockSettlementProvider);
+  // No serviceUrl → the client cannot settle itself (the authority key lives server-side only).
   const arch = new ArchSettlementProvider({ rpcUrl: "https://rpc.testnet.arch.network", programId: "abc", mint: "xyz" });
-  await assert.rejects(arch.settle(), /not wired/);
+  await assert.rejects(arch.settle("1", []), /no settlement service/);
+  // Player-signed money moves require a wallet, never faked.
+  await assert.rejects(arch.collectEntry(), /player-wallet-signed/);
 });

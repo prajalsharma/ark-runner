@@ -9,6 +9,11 @@ dist/
 .vite/
 coverage/
 
+# rust (settlement signer) build output
+target/
+server/arch-settle/target/
+.scratch/
+
 qa-shots/
 
 # agent worktrees / local tooling
