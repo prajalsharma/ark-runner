@@ -8,12 +8,14 @@
 import { Game } from "../game/game.ts";
 import { Attract } from "./attract.ts";
 import { Cutscene } from "./cutscene.ts";
-import { dailyNumber, dailyVariant, dailySeed } from "../game/daily.ts";
+import { dailyNumber, dailyVariant, dailySeed, dailyMatchId } from "../game/daily.ts";
 import { localStore, localBest, competitiveBest, competitiveDailyBest, competitiveProfile, DAILY_RULES } from "../game/records.ts";
 import { bestEver } from "../game/cosmetics.ts";
 import { CHARACTERS, selectedCharacterId, selectCharacter, selectedCharacterColor, characterSwatch } from "../game/characters.ts";
 import { MockWalletProvider } from "../wallet/mock.ts";
-import { detectWallets, InjectedWalletProvider, WALLET_LABEL } from "../wallet/arch.ts";
+import { detectWallets, InjectedWalletProvider, WALLET_LABEL, makeWalletSigner, toXOnlyHex } from "../wallet/arch.ts";
+import { isLiveConfigured, makeClientSettlement } from "../chain/clientConfig.ts";
+import type { ArchSettlementProvider } from "../chain/arch.ts";
 import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
 import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts";
 import { soundOn, setSound, reducedMotion, setReducedMotion, quality, setQuality } from "../game/settings.ts";
@@ -143,15 +145,70 @@ export class Menu {
           <div><span class="pv">${today ? today.toLocaleString() : "—"}</span><span class="pl">TODAY'S BEST</span></div>
           <div><span class="pv">#${seedHex}</span><span class="pl">SEED · ${DAILY_RULES.physicsVersion.replace("ARCHRUN_", "")}</span></div>
         </div>
+        ${this.entryBoxHtml()}
+        <button id="enter" class="btn">${this.liveEntryAvailable() ? "ENTER · PAY ENTRY ON-CHAIN" : "ENTER THE DAILY BLOCK"}</button>
+        <button id="back" class="btn ghost">BACK</button>
+      </div>`;
+    this.bind("#enter", () => (this.liveEntryAvailable() ? this.enterDailyOnChain() : this.start("daily")));
+    this.bind("#back", () => this.open());
+  }
+
+  /** Live on-chain entry is offered ONLY when a settlement service is configured AND the player
+   *  connected a real (non-DEMO) Bitcoin wallet. Otherwise the Daily Block stays free/DEMO. */
+  private liveEntryAvailable(): boolean {
+    return isLiveConfigured() && !!this.session && !!this.profile && !this.isDemo;
+  }
+
+  private entryBoxHtml(): string {
+    if (this.liveEntryAvailable()) {
+      return `
+        <div class="entrybox">
+          <div class="entryrow"><span class="entrylabel">ENTRY</span><span class="entryval">ON-CHAIN · <b>Arch testnet</b></span></div>
+          <div class="entrynote">You pay the entry with <b>your own wallet</b> — you sign a <code>JoinMatch</code> transaction that escrows the entry token into today's match vault. The settlement authority key never touches your browser. Prizes pay out 70/20/10 after the window. Testnet only — no real-money value.</div>
+        </div>`;
+    }
+    return `
         <div class="entrybox">
           <div class="entryrow"><span class="entrylabel">ENTRY</span><span class="entryval">FREE · <span class="demotag">DEMO</span></span></div>
           <div class="entrynote">The escrow program is <b>deployed &amp; E2E-verified on Arch testnet</b> (see ARCH NET), but in-game entries/prizes still run in <b>DEMO</b> until the settlement service is live. Your run is saved to <b>your wallet's</b> competitive history, provisional until the server validator runs. No real funds move.</div>
-        </div>
-        <button id="enter" class="btn">ENTER THE DAILY BLOCK</button>
-        <button id="back" class="btn ghost">BACK</button>
-      </div>`;
-    this.bind("#enter", () => this.start("daily"));
-    this.bind("#back", () => this.open());
+        </div>`;
+  }
+
+  /** Player-signed on-chain entry: build + wallet-sign + submit a real JoinMatch, with truthful
+   *  pending/confirmed/failed states. Only ever reached when liveEntryAvailable() is true. */
+  private async enterDailyOnChain(): Promise<void> {
+    if (!this.session || !this.activeProvider || this.isDemo) return this.start("daily");
+    const info = (title: string, body: string, buttons = ""): void => {
+      this.overlay.className = "show";
+      this.overlay.innerHTML = `<div class="card modal"><div class="eyebrow">${title}</div><div class="lbnote">${body}</div>${buttons}</div>`;
+    };
+    let playerX: string;
+    try { playerX = toXOnlyHex(this.session.pubkey); }
+    catch { info("ENTRY", "Your wallet did not expose a Taproot public key. Connect a Taproot (BIP-86) address to enter on-chain, or play Free Run."); this.bind("#back", () => this.showDailyBrief()); return; }
+
+    const matchId = dailyMatchId().toString();
+    const signer = makeWalletSigner(this.activeProvider, this.session);
+    const provider = makeClientSettlement(signer) as ArchSettlementProvider;
+
+    info("ENTERING…", "Checking today's match on-chain…");
+    try {
+      const pool = await provider.pool(matchId).catch(() => null);
+      if (!pool) { info("NOT OPEN YET", "Today's on-chain match hasn't been created yet (the settlement service opens it at day roll-over). Try again shortly, or play Free Run.", `<button id="back" class="btn">BACK</button>`); this.bind("#back", () => this.showDailyBrief()); return; }
+      if (pool.settled) { info("ALREADY SETTLED", "Today's match is already settled — come back for the next Daily Block.", `<button id="back" class="btn">BACK</button>`); this.bind("#back", () => this.showDailyBrief()); return; }
+      const bal = await provider.balanceOf(playerX).catch(() => 0n);
+      if (bal <= 0n) { info("NO ENTRY TOKEN", "You don't hold the Daily Block entry token in this wallet yet. Get the entry token, then enter.", `<button id="back" class="btn">BACK</button>`); this.bind("#back", () => this.showDailyBrief()); return; }
+
+      info("CONFIRM IN WALLET…", "Approve the <b>JoinMatch</b> signature in your wallet. This escrows your entry token into today's match vault.");
+      await provider.collectEntry(matchId, playerX, bal); // throws unless the tx confirms (Processed)
+      info("ENTRY CONFIRMED ✓", "Your entry is escrowed on-chain. Good luck — run the block!", `<button id="go" class="btn">RUN</button>`);
+      this.bind("#go", () => this.start("daily"));
+    } catch (e) {
+      const msg = String(e instanceof Error ? e.message : e);
+      const friendly = /cancel|reject|denied/i.test(msg) ? "You cancelled the signature." : msg;
+      info("ENTRY NOT CONFIRMED", `No funds moved. ${friendly}`, `<button id="retry" class="btn">TRY AGAIN</button><button id="back" class="btn ghost">BACK</button>`);
+      this.bind("#retry", () => this.enterDailyOnChain());
+      this.bind("#back", () => this.showDailyBrief());
+    }
   }
 
   private postConnect(): void {

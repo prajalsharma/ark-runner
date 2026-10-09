@@ -10,6 +10,7 @@
  * No private keys are ever requested — only address, pubkey, and signatures.
  */
 import type { WalletProvider, WalletSession } from "./provider.ts";
+import type { ArchSigner } from "../chain/archTx.ts";
 
 export type WalletKind = "unisat" | "okx" | "xverse" | "leather";
 
@@ -94,4 +95,70 @@ export class InjectedWalletProvider implements WalletProvider {
     if (this.kind === "okx") return w.okxwallet!.bitcoin!.signMessage(message, "bip322-simple");
     throw new Error("signing not wired for this wallet");
   }
+}
+
+// --- wallet → Arch transaction signer -----------------------------------------------
+/** Decode base64 (browser atob or Node Buffer). */
+export function base64ToBytes(b64: string): Uint8Array {
+  const g = globalThis as { atob?: (s: string) => string; Buffer?: { from(s: string, enc: string): Uint8Array } };
+  if (typeof g.atob === "function") {
+    const bin = g.atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  if (g.Buffer) return Uint8Array.from(g.Buffer.from(b64, "base64"));
+  throw new Error("no base64 decoder available");
+}
+
+/** Read a Bitcoin compact-size integer at `off`; returns [value, nextOffset]. */
+function readCompactSize(b: Uint8Array, off: number): [number, number] {
+  const first = b[off]!;
+  if (first < 0xfd) return [first, off + 1];
+  if (first === 0xfd) return [b[off + 1]! | (b[off + 2]! << 8), off + 3];
+  throw new Error("witness element too large to parse");
+}
+
+/**
+ * Extract the 64-byte Schnorr signature from a wallet BIP-322-simple signature.
+ * Wallets return base64 of the witness stack; a Taproot key-spend witness is a single element
+ * (the 64-byte Schnorr sig, optionally + 1 sighash byte). Mirrors the Rust SDK, which takes the
+ * first 64 bytes of the first witness element (sign_message_bip322 → witness[0][..64]).
+ */
+export function extractSchnorrSignature(walletSig: string): Uint8Array {
+  const raw = base64ToBytes(walletSig.trim());
+  // Some wallets return the bare signature rather than a wrapped witness.
+  if (raw.length === 64 || raw.length === 65) return raw.slice(0, 64);
+  // Otherwise parse a witness stack: [count][len][element…]…
+  const [count, afterCount] = readCompactSize(raw, 0);
+  if (count < 1) throw new Error("empty witness in wallet signature");
+  const [elemLen, afterLen] = readCompactSize(raw, afterCount);
+  if (elemLen < 64) throw new Error(`witness element too short (${elemLen}) for a Schnorr signature`);
+  const elem = raw.slice(afterLen, afterLen + elemLen);
+  if (elem.length < 64) throw new Error("truncated witness signature element");
+  return elem.slice(0, 64);
+}
+
+/** Normalise a wallet pubkey to the 32-byte x-only (Taproot) hex Arch uses. */
+export function toXOnlyHex(pubkey: string): string {
+  const h = pubkey.trim().toLowerCase().replace(/^0x/, "");
+  if (/^[0-9a-f]{64}$/.test(h)) return h;                 // already x-only
+  if (/^[0-9a-f]{66}$/.test(h)) return h.slice(2);        // compressed (02/03 prefix) → drop it
+  throw new Error(`cannot derive x-only pubkey from "${pubkey}"`);
+}
+
+/**
+ * Build an ArchSigner backed by a connected injected wallet. The wallet must be connected with
+ * its Taproot (BIP-86) address so that p2tr(xonly) — the address the node reconstructs for
+ * BIP-322 verification — matches the submitted x-only pubkey.
+ */
+export function makeWalletSigner(provider: WalletProvider, session: WalletSession): ArchSigner {
+  const pubkeyHex = toXOnlyHex(session.pubkey);
+  return {
+    pubkeyHex,
+    async signDigest(digestHex: string): Promise<Uint8Array> {
+      const walletSig = await provider.signMessage(digestHex); // BIP-322-simple over the 64-char hex digest
+      return extractSchnorrSignature(walletSig);
+    },
+  };
 }

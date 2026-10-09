@@ -14,6 +14,7 @@
  */
 import http from "node:http";
 import { readConfig, readMatch, STATE_SETTLED, STATE_REFUND } from "../src/chain/archRead.ts";
+import { dailyMatchId, dateKeyUTC, dailyNumber } from "../src/game/daily.ts";
 import { validateRun, type SubmitBody } from "./runValidate.ts";
 import { isDuplicate, record, leaderboard } from "./store.ts";
 import * as signer from "./signer.ts";
@@ -64,7 +65,17 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === "GET" && path === "/health") {
-      return send(res, 200, { ok: true, service: "arch-runner-settlement", network: "testnet" });
+      return send(res, 200, { ok: true, service: "arch-runner-settlement", network: "testnet", authorityKeyLoaded: Boolean(process.env.ARCH_SETTLEMENT_AUTHORITY_SECRET) });
+    }
+
+    // Today's deterministic Daily Block match id — the client derives the same value, and the
+    // authority cron creates exactly this id at day roll-over (so no shared state is needed).
+    if (req.method === "GET" && path === "/daily/current") {
+      const dateKey = url.searchParams.get("dateKey") ?? dateKeyUTC();
+      const matchId = dailyMatchId(dateKey).toString();
+      const m = await readMatch(BigInt(matchId)).catch(() => null);
+      const stateName = !m ? "NOT_CREATED" : m.state === STATE_SETTLED ? "SETTLED" : m.state === STATE_REFUND ? "REFUND" : "OPEN";
+      return send(res, 200, { dateKey, dailyNumber: dailyNumber(dateKey), matchId, state: stateName, joined: m?.joined ?? 0 });
     }
 
     // ---- reads (no key; client-safe) ----

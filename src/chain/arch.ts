@@ -20,17 +20,21 @@ import {
   RPC_URL, PROGRAM_ID_HEX, MINT_HEX,
   readMatch, readTokenBalance, readVaultBalance, STATE_SETTLED, STATE_REFUND,
 } from "./archRead.ts";
+import {
+  type ArchSigner, buildJoinInstructions, buildReclaimInstructions, buildSignSubmit,
+} from "./archTx.ts";
 
 export type ArchConfig = {
   rpcUrl: string;          // https://rpc.testnet.arch.network (keyless)
   programId: string;       // 64-hex settlement program
   mint: string;            // our own APL token mint
   serviceUrl?: string;     // settlement service base URL (holds the authority key, server-side)
+  signer?: ArchSigner;     // the connected PLAYER's wallet signer (join/reclaim) — never an authority key
   authoritySecret?: never; // the client MUST NOT carry a key — typed away so it can't be passed
 };
 
 const NO_SERVICE = "no settlement service configured (set serviceUrl) — the client cannot and must not settle itself";
-const PLAYER_SIGNED = "this action is player-wallet-signed on-chain; in-browser wallet signing is not wired in this phase";
+const NO_SIGNER = "connect a Bitcoin (Taproot) wallet to sign this on-chain action";
 
 function matchIdOf(id: string): bigint {
   if (!/^\d+$/.test(id)) throw new Error(`on-chain match id must be a u64 decimal string, got "${id}"`);
@@ -45,8 +49,10 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 export class ArchSettlementProvider implements GameSettlementProvider {
+  private signer?: ArchSigner;
   constructor(private readonly cfg: ArchConfig) {
     if (!cfg.rpcUrl || !cfg.programId || !cfg.mint) throw new Error("ArchConfig requires rpcUrl, programId, mint");
+    this.signer = cfg.signer;
   }
 
   private get rpc(): string { return this.cfg.rpcUrl || RPC_URL; }
@@ -55,14 +61,34 @@ export class ArchSettlementProvider implements GameSettlementProvider {
     return this.cfg.serviceUrl.replace(/\/$/, "");
   }
 
+  /** Attach / detach the connected player's wallet signer (set on connect, cleared on disconnect). */
+  setPlayerSigner(signer: ArchSigner | undefined): void { this.signer = signer; }
+  hasSigner(): boolean { return !!this.signer; }
+
   /** Authority-only → delegated to the settlement service (keyless from the client's side). */
   async openCompetition(id: string, opts: { feeRateBps: number }): Promise<void> {
     void opts; // the on-chain fee is fixed 0%; feeRateBps is not honoured on-chain
     await postJson(`${this.service()}/match/create`, { matchId: id });
   }
 
-  /** Player-signed on-chain join — requires the player's wallet, not wired this phase. */
-  async collectEntry(): Promise<void> { throw new Error(PLAYER_SIGNED); }
+  /**
+   * Player-signed on-chain JOIN. The connected wallet signs a `JoinMatch` tx (BIP-322 over the
+   * ArchMessage digest); the program escrows exactly the config `entry` from the player's ATA
+   * into the match vault. No authority key is involved. Throws unless the tx confirms
+   * (status == Processed) so the UI can only ever show a truthful state.
+   */
+  async collectEntry(id: string, player: string, amount: Sats): Promise<void> {
+    void amount; // the on-chain entry is fixed by config; the program transfers exactly `entry`
+    if (!this.signer) throw new Error(NO_SIGNER);
+    if (player && /^[0-9a-f]{64}$/.test(player) && player !== this.signer.pubkeyHex) {
+      throw new Error("connected wallet does not match the entering player");
+    }
+    const ixs = await buildJoinInstructions(this.signer.pubkeyHex, matchIdOf(id));
+    const { txid, status } = await buildSignSubmit(ixs, this.signer, this.rpc);
+    if (status.state !== "processed") {
+      throw new Error(`join not confirmed (tx ${txid}: ${status.state}${status.state === "failed" ? ` — ${status.error}` : ""})`);
+    }
+  }
 
   /** Authority-only → delegated to the settlement service, which signs the on-chain settle. */
   async settle(id: string, payouts: Payout[]): Promise<SettleResult> {
@@ -73,8 +99,24 @@ export class ArchSettlementProvider implements GameSettlementProvider {
     return { txRef: r.txid, paid: (r.payouts ?? []).map((p) => ({ player: p.player, amount: BigInt(p.amount) })) };
   }
 
-  /** Player-signed on-chain refund — requires the player's wallet, not wired this phase. */
-  async reclaim(): Promise<Sats> { throw new Error(PLAYER_SIGNED); }
+  /**
+   * Player-signed on-chain REFUND (`ReclaimEntry`), valid only after the settle deadline. Returns
+   * the refunded amount (the config `entry`) on a confirmed tx; throws otherwise.
+   */
+  async reclaim(id: string, player: string): Promise<Sats> {
+    if (!this.signer) throw new Error(NO_SIGNER);
+    if (player && /^[0-9a-f]{64}$/.test(player) && player !== this.signer.pubkeyHex) {
+      throw new Error("connected wallet does not match the reclaiming player");
+    }
+    const m = await readMatch(matchIdOf(id), this.rpc);
+    if (!m) throw new Error(`match ${id} not found on-chain`);
+    const ixs = await buildReclaimInstructions(this.signer.pubkeyHex, matchIdOf(id));
+    const { txid, status } = await buildSignSubmit(ixs, this.signer, this.rpc);
+    if (status.state !== "processed") {
+      throw new Error(`reclaim not confirmed (tx ${txid}: ${status.state}${status.state === "failed" ? ` — ${status.error}` : ""})`);
+    }
+    return m.entry;
+  }
 
   /** Live read of the match PDA + vault — no key, browser-safe. */
   async pool(id: string): Promise<PoolView> {

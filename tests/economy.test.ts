@@ -74,6 +74,8 @@ test("the default provider is Mock; Arch is honest (reads real, never settles wi
   // No serviceUrl → the client cannot settle itself (the authority key lives server-side only).
   const arch = new ArchSettlementProvider({ rpcUrl: "https://rpc.testnet.arch.network", programId: "abc", mint: "xyz" });
   await assert.rejects(arch.settle("1", []), /no settlement service/);
-  // Player-signed money moves require a wallet, never faked.
-  await assert.rejects(arch.collectEntry(), /player-wallet-signed/);
+  // Player-signed money moves require a connected wallet signer — never faked, never an authority key.
+  assert.equal(arch.hasSigner(), false);
+  await assert.rejects(arch.collectEntry("1", "", 10n), /wallet/i);
+  await assert.rejects(arch.reclaim("1", ""), /wallet/i);
 });

@@ -27,6 +27,18 @@ export function dailyNumber(dateKey: string = dateKeyUTC()): number {
   return Math.max(1, day);
 }
 
+/**
+ * Deterministic on-chain match id for a UTC day: the Unix-seconds timestamp of that day's
+ * 00:00 UTC. Both the client (to join) and the settlement service (authority `create_match`
+ * cron) derive the SAME u64 from the dateKey with no shared state, so a connected player can
+ * join today's real match without any extra round-trip to learn its id.
+ */
+export function dailyMatchId(dateKey: string = dateKeyUTC()): bigint {
+  const secs = Math.floor(Date.parse(`${dateKey}T00:00:00Z`) / 1000);
+  if (!Number.isFinite(secs) || secs <= 0) throw new Error(`bad dateKey "${dateKey}"`);
+  return BigInt(secs);
+}
+
 /** A daily challenge "theme" + goal, chosen deterministically by the day. This is a
  *  GOAL layered on the same fair daily seed — it does NOT change the deterministic
  *  score (so replay/leaderboard parity holds); it gives the day an identity and a

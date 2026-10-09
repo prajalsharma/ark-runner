@@ -159,12 +159,48 @@ fn main() {
     if args.len() < 2 {
         die("usage: arch-settle <create-match|settle|seed-players> ...");
     }
-    let client = ArchRpcClient::new(&rpc_config());
     let program = pk_from_hex(PROGRAM_HEX);
     let mint = pk_from_hex(MINT_HEX);
+    let cfg_pda = config_pda(&program);
+
+    // join-bytes is a keyless, network-free construction check — handle it before loading any key.
+    if args[1] == "join-bytes" {
+        let player = pk_from_hex(args.get(2).unwrap_or_else(|| die("player x-only hex required")));
+        let match_id: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or_else(|| die("match_id u64 required"));
+        let bh_hex = args.get(4).unwrap_or_else(|| die("blockhash hex required"));
+        let bh = hex::decode(bh_hex).unwrap_or_else(|_| die("bad blockhash hex"));
+        if bh.len() != 32 { die("blockhash must be 32 bytes"); }
+        let mut bh32 = [0u8; 32];
+        bh32.copy_from_slice(&bh);
+        let blockhash = arch_sdk::arch_program::hash::Hash::from(bh32);
+        let m_pda = match_pda(&program, match_id);
+        let vault = ata_of(&m_pda, &mint);
+        let player_ata = ata_of(&player, &mint);
+        let join = Instruction {
+            program_id: program,
+            accounts: vec![
+                AccountMeta::new(player, true),
+                AccountMeta::new_readonly(cfg_pda, false),
+                AccountMeta::new(m_pda, false),
+                AccountMeta::new(player_ata, false),
+                AccountMeta::new(vault, false),
+                AccountMeta::new_readonly(apl_token::id(), false),
+            ],
+            data: borsh::to_vec(&EscrowInstruction::JoinMatch).unwrap(),
+        };
+        let ixs = [create_ata_idem_ix(&player, &player, &mint), join];
+        let msg = ArchMessage::new(&ixs, Some(player), blockhash);
+        println!(
+            "{{\"serialize\":\"{}\",\"hash\":\"{}\"}}",
+            hex::encode(msg.serialize()),
+            String::from_utf8(msg.hash()).unwrap()
+        );
+        return;
+    }
+
+    let client = ArchRpcClient::new(&rpc_config());
     let authority = load_authority();
     let auth_pk = pubkey_of(&authority);
-    let cfg_pda = config_pda(&program);
 
     match args[1].as_str() {
         "create-match" => {
