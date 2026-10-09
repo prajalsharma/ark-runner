@@ -8,3 +8,5 @@ dist/
 *.log
 .vite/
 coverage/
+
+qa-shots/

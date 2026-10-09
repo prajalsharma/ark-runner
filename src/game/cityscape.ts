@@ -34,10 +34,19 @@ export class CityScape {
         }
       }
     }
-    // Arch ring-gates spanning the corridor — the "Arch" identity, run straight through them.
-    const gateGeo = new THREE.TorusGeometry(5.2, 0.34, 8, 28);
-    const gateMat = new THREE.MeshStandardMaterial({ color: COL.arch, emissive: COL.arch, emissiveIntensity: 0.45, roughness: 0.4 });
-    for (let i = 0; i < 4; i++) { const g = new THREE.Mesh(gateGeo, gateMat); g.position.y = 2.4; this.gates.push(g); this.group.add(g); }
+    // Arch gateway structures spanning the road — the "Arch" identity. Grounded (bottom
+    // at the floor) so they read as doorways you run THROUGH, not floating rings, and
+    // dim/structural rather than glowing. Fewer + spaced so only one is in view at a time.
+    // Half-torus = a semicircular ARCHWAY rising from the floor (not a full ring/circle).
+    const gateGeo = new THREE.TorusGeometry(4.3, 0.3, 8, 22, Math.PI);
+    const gateMat = new THREE.MeshStandardMaterial({ color: 0xa85f23, emissive: 0x4a2206, emissiveIntensity: 0.28, roughness: 0.75, metalness: 0.2 });
+    const legGeo = new THREE.BoxGeometry(0.42, 4.2, 0.42); // pillars grounding the arch
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.Mesh(gateGeo, gateMat);
+      g.position.y = 0; // legs touch the road, peak overhead
+      for (const sx of [-4.3, 4.3]) { const leg = new THREE.Mesh(legGeo, gateMat); leg.position.set(sx, 2.1, 0); g.add(leg); }
+      this.gates.push(g); this.group.add(g);
+    }
 
     scene.add(this.group);
   }
@@ -49,9 +58,9 @@ export class CityScape {
       it.m.position.z = localZ;
       it.m.visible = localZ > -150 && localZ < 18;
     }
-    const gspan = 70;
+    const gspan = 120; // spaced so only one gateway is in view at a time
     for (let i = 0; i < this.gates.length; i++) {
-      this.gates[i]!.position.z = -((((i * 17.5 - distance) % gspan) + gspan) % gspan) + 12;
+      this.gates[i]!.position.z = -((((i * 40 - distance) % gspan) + gspan) % gspan) + 12;
     }
   }
 }
