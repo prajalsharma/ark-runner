@@ -44,8 +44,10 @@ export class RunnerRig {
   private suitMat: THREE.MeshStandardMaterial;   // the player-coloured run suit
   private hoodMat: THREE.MeshStandardMaterial;   // darker shade of the suit — reads as a cowl
   private gearMat: THREE.MeshStandardMaterial;   // boots / gloves / pack — dark metal
-  private skinMat: THREE.MeshStandardMaterial;   // shadowed face
-  private visorMat: THREE.MeshPhysicalMaterial;  // emissive visor + chest core
+  private skinMat: THREE.MeshStandardMaterial;   // face / hands / neck skin
+  private hairMat: THREE.MeshStandardMaterial;   // hair
+  private eyeMat: THREE.MeshStandardMaterial;    // eye whites
+  private visorMat: THREE.MeshPhysicalMaterial;  // emissive accents (chest core, glowing eyes, soles)
 
   private slideF = 0;  // eased 0..1 slide blend
   private airF = 0;    // eased 0..1 airborne blend
@@ -67,7 +69,9 @@ export class RunnerRig {
     this.suitMat = new THREE.MeshStandardMaterial({ color, emissive: new THREE.Color(color).multiplyScalar(0.12), emissiveIntensity: 0.6, roughness: 0.55, metalness: 0.15 });
     this.hoodMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.42), roughness: 0.68, metalness: 0.12 });
     this.gearMat = new THREE.MeshStandardMaterial({ color: 0x15181f, roughness: 0.55, metalness: 0.55 });
-    this.skinMat = new THREE.MeshStandardMaterial({ color: 0x4a3a30, roughness: 0.85 }); // in-cowl shadow
+    this.skinMat = new THREE.MeshStandardMaterial({ color: 0xc98b63, roughness: 0.8 }); // natural skin
+    this.hairMat = new THREE.MeshStandardMaterial({ color: 0x241712, roughness: 0.75 }); // dark hair
+    this.eyeMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.5 });   // eye whites
     // Glossy clearcoat so the visor + chest core read like lit screens, not matte plastic.
     this.visorMat = new THREE.MeshPhysicalMaterial({ color: 0x0a0c12, emissive: 0x33e1ff, emissiveIntensity: 1.6, roughness: 0.22, metalness: 0.4, clearcoat: 1, clearcoatRoughness: 0.12 });
 
@@ -127,26 +131,43 @@ export class RunnerRig {
     const seam2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.02), this.visorMat);
     seam2.position.set(0, -0.14, -0.19); this.pack.add(seam2);
 
-    // Neck.
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.1, 8), this.gearMat);
-    neck.position.y = 0.68; this.body.add(neck);
+    // Neck (skin).
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.085, 0.1, 10), this.skinMat);
+    neck.position.y = 0.69; this.body.add(neck);
 
-    // Head + COWL on its own pivot (secondary motion). The head is a small shadowed sphere
-    // SET BACK inside a dark cowl so the silhouette reads "hooded", not "bald". The glowing
-    // cyan visor sits on the FACE (the signature read), with a pulled-forward hood brim above.
+    // ---- HEAD on its own pivot (secondary motion = hair/head bob & sway) ----
+    // A human head: skin head, a face on the FRONT (+z local → travel side, seen in the
+    // cutscene), and HAIR covering top/back/sides (what the chase camera sees from behind).
     this.hood.position.set(0, 0.82, 0); this.body.add(this.hood);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), this.skinMat);
-    head.position.set(0, 0.03, -0.01); head.scale.set(0.95, 1, 0.95); this.hood.add(head);
-    // Cowl: a thick shell open at the face. Wider at the back, pulled forward into a brim.
-    const cowl = new THREE.Mesh(new THREE.SphereGeometry(0.235, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.86), this.hoodMat);
-    cowl.position.set(0, 0.04, -0.02); cowl.scale.set(1.08, 1.12, 1.18); this.hood.add(cowl);
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.24, 0.1, 16, 1, true), this.hoodMat);
-    brim.rotation.x = 1.25; brim.position.set(0, 0.11, 0.12); this.hood.add(brim); // forward peak
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.22, 0.12, 14), this.hoodMat);
-    collar.position.set(0, -0.08, -0.03); collar.scale.z = 1.15; this.hood.add(collar);
-    // Visor: a glowing slit across the shadowed face.
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, 0.05), this.visorMat);
-    visor.position.set(0, 0.02, 0.14); this.hood.add(visor);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.155, 20, 16), this.skinMat);
+    head.position.set(0, 0.02, 0); head.scale.set(0.9, 1.08, 0.94); this.hood.add(head);
+    for (const ex of [-1, 1]) { // ears
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), this.skinMat);
+      ear.position.set(ex * 0.142, 0.0, -0.01); ear.scale.set(0.6, 1, 0.8); this.hood.add(ear);
+    }
+    // Hair: a cap over top + back + sides, open at the face; sits slightly proud of the scalp.
+    const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.168, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), this.hairMat);
+    hairCap.position.set(0, 0.055, -0.012); hairCap.scale.set(1.02, 1.08, 1.08); this.hood.add(hairCap);
+    const nape = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), this.hairMat);
+    nape.position.set(0, 0.03, -0.055); nape.scale.set(0.98, 0.9, 0.7); this.hood.add(nape); // fuller at the back
+    for (const tx of [-0.075, -0.025, 0.025, 0.075]) { // swept front tufts over the hairline
+      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.1, 5), this.hairMat);
+      tuft.position.set(tx, 0.125, 0.085); tuft.rotation.set(0.9, 0, (tx) * 1.2); this.hood.add(tuft);
+    }
+    // Face (front = +z local): eyes (+ a faint cyan tech glint), brows, nose, mouth.
+    const eye = (ex: number): void => {
+      const white = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), this.eyeMat);
+      white.position.set(ex * 0.058, 0.028, 0.132); white.scale.set(1, 0.8, 0.5); this.hood.add(white);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 6), this.visorMat);
+      pupil.position.set(ex * 0.058, 0.028, 0.15); this.hood.add(pupil); // faint cyan glow = Tron tech-eyes
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.013, 0.02), this.hairMat);
+      brow.position.set(ex * 0.058, 0.072, 0.142); brow.rotation.z = ex * 0.1; this.hood.add(brow);
+    };
+    eye(-1); eye(1);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.06, 6), this.skinMat);
+    nose.rotation.x = Math.PI / 2; nose.position.set(0, -0.012, 0.15); this.hood.add(nose);
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.02), this.hairMat);
+    mouth.position.set(0, -0.072, 0.138); this.hood.add(mouth);
 
     // ---- Arms: shoulder → upper → ELBOW → forearm → glove, with joint caps. ----
     const armBuild = (sh: THREE.Group, elbow: THREE.Group, sx: number): void => {
@@ -156,8 +177,18 @@ export class RunnerRig {
       elbow.position.y = -0.28; sh.add(elbow);
       joint(elbow, 0.072, this.suitMat);                        // elbow cap
       limb(elbow, 0.07, 0.055, 0.26, this.suitMat);            // forearm
-      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.082, 10, 8), this.gearMat);
-      glove.position.y = -0.3; glove.scale.z = 1.15; elbow.add(glove);
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.055, 0.04, 10), this.gearMat);
+      cuff.position.y = -0.28; elbow.add(cuff);                 // sleeve cuff at the wrist
+      // Hand: skin palm + four fingers + a thumb (a loose running fist).
+      const hand = new THREE.Group(); hand.position.y = -0.31; elbow.add(hand);
+      const palm = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.085, 0.05), this.skinMat);
+      palm.position.y = -0.02; hand.add(palm);
+      for (let f = 0; f < 4; f++) {
+        const finger = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.055, 0.03), this.skinMat);
+        finger.position.set(-0.026 + f * 0.0175, -0.075, 0.012); finger.rotation.x = 0.5; hand.add(finger); // curled
+      }
+      const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.042, 0.026), this.skinMat);
+      thumb.position.set(sx * 0.04, -0.04, 0.02); thumb.rotation.z = sx * 0.7; hand.add(thumb);
     };
     armBuild(this.shL, this.elbowL, -1);
     armBuild(this.shR, this.elbowR, 1);
