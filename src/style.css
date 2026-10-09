@@ -240,6 +240,17 @@ body {
 .sysbtn:hover { background: rgba(255, 122, 26, 0.18); }
 .sysbtn:active { transform: translateY(1px); }
 
+/* Phone HUD: the 3 stat chips otherwise span the full width and collide with the
+   mute/pause controls. Shrink + left-align them, reserve the right for the controls. */
+@media (max-width: 560px) {
+  #hud { justify-content: flex-start; gap: 6px; padding-right: 104px; padding-left: 10px; }
+  .stat { min-width: 0; padding: 5px 9px; border-radius: 8px; }
+  .stat .k { font-size: 8px; letter-spacing: 1px; }
+  .stat .v { font-size: 15px; letter-spacing: 0.5px; }
+  .sysbtn { width: 40px; height: 40px; font-size: 16px; }
+  #coins { top: calc(max(12px, env(safe-area-inset-top)) + 44px); font-size: 15px; padding: 5px 9px; }
+}
+
 /* Custom share card (not the native OS sheet) */
 #sharepop { position: absolute; inset: 0; z-index: 12; display: none; align-items: center; justify-content: center; background: rgba(7,8,12,0.78); }
 #sharepop.show { display: flex; }
