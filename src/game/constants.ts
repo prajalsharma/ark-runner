@@ -3,7 +3,7 @@
  * deterministic: same seed + same inputs + these constants ⇒ same result,
  * on the client and on the server replay.
  */
-export const RULESET = "ARCHRUN_V2"; // V2: gentler top speed + Block Run (human-playable)
+export const RULESET = "ARCHRUN_V3"; // V3: slide-buffer (duck fires on landing) — deterministic change
 
 export const TICK_HZ = 60;
 export const DT = 1 / TICK_HZ;

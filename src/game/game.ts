@@ -122,6 +122,15 @@ export class Game {
     this.reactToEvents();
     // Continuous dust trail while sliding (not just on entry) so the slide reads with speed.
     if (this.sim.sliding && this.sim.alive && now - this.lastSlideDust > 110) { this.renderer.burst("slide"); this.lastSlideDust = now; }
+    // ARCH FLIP coaching: when a flip gate is approaching, tell the player which lane to take
+    // for ×3 (the choice was previously unexplained in the moment). Hidden once taken/passed.
+    let flipCue: string | null = null;
+    if (this.sim.alive && !this.sim.flipActive) {
+      const d = this.sim.distance; let bestRel = 1e9, bestLane = 0;
+      for (const g of this.sim.flipGatesInView()) { const rel = g.z - d; if (rel > 1.5 && rel < 24 && rel < bestRel) { bestRel = rel; bestLane = g.lane; } }
+      if (bestRel < 1e9) flipCue = bestLane < 0 ? "LEFT" : bestLane > 0 ? "RIGHT" : "CENTER";
+    }
+    this.hud.flipCue(flipCue);
     this.audio.setDrive(this.sim.speed, this.sim.blockRun);
     this.renderer.render(this.sim, now);
     if (!this.firstFrame) { this.firstFrame = true; this.onReady?.(); } // first real frame painted → safe to reveal

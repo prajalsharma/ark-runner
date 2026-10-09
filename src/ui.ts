@@ -32,6 +32,8 @@ export class HUD {
   private debugEl: HTMLElement;
   private shareEl: HTMLElement;
   private flashEl!: HTMLElement;
+  private flipCueEl!: HTMLElement;
+  private flipCueShown = false;
   private toastTimer = 0;
   private coachTimer = 0;
   private lastCoins = 0;
@@ -49,6 +51,9 @@ export class HUD {
     this.coinsEl.innerHTML = `<span class="btcico">₿</span><span class="num">0</span>`;
     app.appendChild(this.coinsEl);
     this.coinsNumEl = this.coinsEl.querySelector(".num") as HTMLElement;
+    this.flipCueEl = document.createElement("div");
+    this.flipCueEl.id = "flipcue";
+    app.appendChild(this.flipCueEl);
     this.debugEl = document.createElement("div");
     this.debugEl.id = "debug";
     app.appendChild(this.debugEl);
@@ -61,6 +66,17 @@ export class HUD {
     // Subtle vignette over the 3D (below the HUD/menu DOM) — a finishing frame for the scene.
     if (!document.getElementById("vignette")) {
       const vg = document.createElement("div"); vg.id = "vignette"; app.appendChild(vg);
+    }
+  }
+
+  /** Approaching-flip-gate prompt: teaches the ARCH FLIP choice in the moment. Pass the lane
+   *  direction ("LEFT"/"CENTER"/"RIGHT") to show it, or null to hide. */
+  flipCue(dir: string | null): void {
+    if (dir) {
+      this.flipCueEl.innerHTML = `⚡ ARCH FLIP → take the <b>${dir}</b> lane for <b>×3</b><span class="sub">risky stretch · bank a big bonus</span>`;
+      if (!this.flipCueShown) { this.flipCueEl.classList.add("show"); this.flipCueShown = true; }
+    } else if (this.flipCueShown) {
+      this.flipCueEl.classList.remove("show"); this.flipCueShown = false;
     }
   }
 

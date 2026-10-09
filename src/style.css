@@ -251,6 +251,17 @@ body {
   #coins { top: calc(max(12px, env(safe-area-inset-top)) + 44px); font-size: 15px; padding: 5px 9px; }
 }
 
+/* ARCH FLIP approaching-cue (teaches the risk/reward choice in the moment) */
+#flipcue { position: absolute; left: 50%; top: 96px; transform: translateX(-50%) translateY(-8px);
+  z-index: 4; pointer-events: none; text-align: center; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  padding: 9px 16px; border-radius: 12px; font-size: 14px; font-weight: 800; letter-spacing: 1px; color: #e9f6ff;
+  background: rgba(10,14,22,0.72); border: 1px solid rgba(155,107,255,0.6); box-shadow: 0 0 22px rgba(155,107,255,0.45); backdrop-filter: blur(6px); }
+#flipcue.show { opacity: 1; transform: translateX(-50%) translateY(0); animation: flippulse 0.7s infinite alternate; }
+#flipcue b { color: #c4a6ff; }
+#flipcue .sub { display: block; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: #9aa0b4; margin-top: 3px; }
+@keyframes flippulse { to { box-shadow: 0 0 30px rgba(155,107,255,0.8); } }
+@media (prefers-reduced-motion: reduce) { #flipcue.show { animation: none; } }
+
 /* Impact flash on a fatal hit */
 #impactflash { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 0;
   background: radial-gradient(120% 90% at 50% 50%, transparent 40%, rgba(255,40,40,0.55) 100%); }

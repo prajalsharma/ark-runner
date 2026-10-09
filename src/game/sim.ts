@@ -54,6 +54,7 @@ export class RunSim {
   lastFlowSource: FlowSource = ""; // for the debug overlay
   deathCause = "";   // why the run ended (for the recap). "" = survived to the cap.
   private bufferedJumpTick = -1000; // jump pressed while airborne, fired on landing
+  private bufferedSlide = false; // slide pressed while airborne → fires on the next landing
 
   readonly seed: number;
   readonly inputs: InputEvent[] = []; // recorded for replay / server validation
@@ -84,7 +85,10 @@ export class RunSim {
         if (this.grounded) { this.vy = JUMP_V; this.grounded = false; }
         else this.bufferedJumpTick = this.tick; // remember it; fire on landing (jump buffer)
         break;
-      case "slide": if (this.grounded) { this.sliding = true; this.slideTimer = SLIDE_SECS; } break;
+      case "slide":
+        if (this.grounded) { this.sliding = true; this.slideTimer = SLIDE_SECS; }
+        else this.bufferedSlide = true; // pressed mid-air → fire on landing (whole airtime, not a tick window)
+        break;
     }
   }
 
@@ -121,7 +125,12 @@ export class RunSim {
         // Jump buffer: a jump pressed just before landing fires now (responsiveness).
         if (this.tick - this.bufferedJumpTick <= JUMP_BUFFER_TICKS) {
           this.vy = JUMP_V; this.grounded = false; this.bufferedJumpTick = -1000;
+        } else if (this.bufferedSlide) {
+          // Slide buffer: a duck pressed any time during the jump fires on touchdown —
+          // fixes "I pressed slide quickly after jumping but nothing happened".
+          this.sliding = true; this.slideTimer = SLIDE_SECS;
         }
+        this.bufferedSlide = false; // consumed (or dropped if we re-jumped)
       }
     }
     if (this.sliding) { this.slideTimer -= DT; if (this.slideTimer <= 0) this.sliding = false; }
