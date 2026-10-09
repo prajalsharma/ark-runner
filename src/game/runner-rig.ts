@@ -100,6 +100,31 @@ export class RunnerRig {
     this.group.add(this.body);
   }
 
+  // Leg segment lengths (thigh, shin) — must match the meshes built in the constructor.
+  private static readonly L1 = 0.38;
+  private static readonly L2 = 0.36;
+
+  /** Foot path over one gait cycle (cyclePos 0..1), in the hip's sagittal plane, then a
+   *  2-bone IK solve → { hip, knee } rotations that place the foot there. Forward = -z. */
+  private static legIK(cyclePos: number): { hip: number; knee: number } {
+    const stance = 0.58, stride = 0.42, legLen = 0.7, lift = 0.26;
+    let ty: number, tz: number;
+    if (cyclePos < stance) {
+      const t = cyclePos / stance;                 // planted: front(-z) → back(+z)
+      tz = (-stride / 2) + stride * t; ty = -legLen;
+    } else {
+      const t = (cyclePos - stance) / (1 - stance); // swing: back → front, foot lifts
+      tz = (stride / 2) - stride * t; ty = -legLen + lift * Math.sin(Math.PI * t);
+    }
+    const L1 = RunnerRig.L1, L2 = RunnerRig.L2;
+    const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
+    const d = clamp(Math.hypot(ty, tz), Math.abs(L1 - L2) + 0.01, L1 + L2 - 0.004);
+    const kneeBend = Math.PI - Math.acos(clamp((L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2), -1, 1));
+    const angTo = Math.atan2(tz, -ty); // angle of the target from straight-down toward +z
+    const hipOff = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));
+    return { hip: angTo - hipOff, knee: kneeBend };
+  }
+
   setColor(hex: number): void { this.suitMat.color.set(hex); this.suitMat.emissive.set(new THREE.Color(hex).multiplyScalar(0.12)); }
   setColorObj(c: THREE.Color): void { this.suitMat.color.copy(c); this.suitMat.emissive.copy(c).multiplyScalar(0.12); }
 
@@ -117,26 +142,30 @@ export class RunnerRig {
     const s = Math.sin(p);
     const swing = 0.8 * run;
 
-    // Legs: hips counter-swing; knees flex on the recovery (foot lifts clear of the ground)
-    // and extend through the stance (foot planted) — a grounded cycle, not rigid rods skating.
-    const runHipL = s * swing, runHipR = -s * swing;
-    const kneeL = Math.max(0, Math.sin(p + 1.1)) * 1.3 * run;
-    const kneeR = Math.max(0, Math.sin(p + Math.PI + 1.1)) * 1.3 * run;
+    // Legs: 2-bone foot IK on a treadmill cycle — each foot follows a real path (plant →
+    // drag back → lift in an arc → swing forward), and the hip + knee are SOLVED to reach
+    // it. Reads as a grounded run cycle (correct knee bend, foot lift) rather than two
+    // rigid rods swinging on independent sines. Opposite legs are half a cycle apart.
+    const cyc = (x: number): number => ((x % 1) + 1) % 1;
+    const tau = Math.PI * 2;
+    const ikL = RunnerRig.legIK(cyc(p / tau));
+    const ikR = RunnerRig.legIK(cyc(p / tau + 0.5));
 
     // Arms: shoulders counter-swing to the legs; elbows stay bent and pump.
     const runShL = -s * swing * 0.8, runShR = s * swing * 0.8;
     const elbow = 0.5 + 0.3 * run;
 
-    // Jump tuck: knees up, arms up. Slide: legs forward + low, arms back.
-    const jumpHip = -0.9 * this.airF, jumpKnee = 1.5 * this.airF, jumpSh = -1.5 * this.airF;
-    const slideHip = -1.1 * this.slideF, slideKnee = 0.4 * this.slideF, slideSh = 1.2 * this.slideF;
+    // Jump tuck / slide are absolute target poses, blended in by their own weight (IK run
+    // pose fades out as airF/slideF rise, since run = (1-airF)(1-slideF)).
+    const jumpHip = -0.9, jumpKnee = 1.7, jumpSh = -1.5;
+    const slideHip = -1.1, slideKnee = 0.5, slideSh = 1.2;
 
-    this.hipL.rotation.x = runHipL + jumpHip + slideHip;
-    this.hipR.rotation.x = runHipR + jumpHip + slideHip;
-    this.kneeL.rotation.x = kneeL + jumpKnee + slideKnee;
-    this.kneeR.rotation.x = kneeR + jumpKnee + slideKnee;
-    this.shL.rotation.x = runShL + jumpSh + slideSh;
-    this.shR.rotation.x = runShR + jumpSh + slideSh;
+    this.hipL.rotation.x = ikL.hip * run + jumpHip * this.airF + slideHip * this.slideF;
+    this.hipR.rotation.x = ikR.hip * run + jumpHip * this.airF + slideHip * this.slideF;
+    this.kneeL.rotation.x = ikL.knee * run + jumpKnee * this.airF + slideKnee * this.slideF;
+    this.kneeR.rotation.x = ikR.knee * run + jumpKnee * this.airF + slideKnee * this.slideF;
+    this.shL.rotation.x = runShL * run + jumpSh * this.airF + slideSh * this.slideF;
+    this.shR.rotation.x = runShR * run + jumpSh * this.airF + slideSh * this.slideF;
     this.elbowL.rotation.x = -elbow; this.elbowR.rotation.x = -elbow;
     // A little arm splay so the swing reads in 3D, not just fore/aft.
     this.shL.rotation.z = 0.12; this.shR.rotation.z = -0.12;
