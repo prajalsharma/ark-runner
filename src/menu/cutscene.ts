@@ -42,33 +42,25 @@ export class Cutscene {
   private shots(): Shot[] {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
     const donut = (s: number): Donut => ({ x: 0, y: 2.2, z: -2.6, scale: s });
+    // Tight ~6s cold-open (skippable). One strong beat each: city → steal the donut →
+    // the Auditor drops in → bolt & nearly trip → you're running. No 30-second epic.
     return [
-      // 0 — establish the city
-      { dur: 3800, cap: `<div class="c3-big">THE ARCH CITY</div><div class="c3-sub">3 AM · you want exactly one thing</div>`,
-        a: { cam: [9, 14, 26], look: [0, 2.5, -8], drift: 2.5 }, b: { cam: [3.5, 8, 16], look: [0, 2.5, -6], drift: 2.5 } },
-      // 1 — the donut, payment pending
-      { dur: 3000, cap: `<div class="c3-line">THE LEGENDARY SATOSHI DONUT</div><div class="c3-sub">PAYMENT: PENDING…</div>`,
-        a: { cam: [2.2, 2.6, 3.4], look: [0, 2.2, -2.6], donut: donut(1.0), drift: 1 }, b: { cam: [1.1, 2.4, 2.7], look: [0, 2.2, -2.6], donut: donut(1.08), drift: 1 } },
-      // 2 — *CRUNCH*
-      { dur: 2000, cap: `<div class="c3-you"><b>YOU:</b> …it's basically confirmed.</div><div class="c3-big" style="font-size:40px">*CRUNCH*</div>`,
-        a: { cam: [1.1, 2.4, 2.7], look: [0, 2.2, -2.6], donut: donut(1.0), drift: 1 }, b: { cam: [1.3, 2.5, 2.9], look: [0, 2.2, -2.6], donut: donut(0.72), drift: 1 } },
-      // 3 — siren: the Auditor descends
-      { dur: 2600, cap: `<div class="c3-siren"></div><div class="c3-alert">UNSETTLED PASTRY DETECTED.</div>`,
-        a: { cam: [0, 4, 9], look: [0, 9, -6], drone: drone(0, 17, -6, 1.2), donut: donut(0.72), drift: 2 }, b: { cam: [0, 4, 8], look: [0, 7, -6], drone: drone(0, 8, -6, 2.6), drift: 2 } },
-      // 4 — the standoff
-      { dur: 3400, cap: `<div class="c3-aud"><b>AUDITOR:</b> That pastry never reached finality.</div><div class="c3-you"><b>YOU:</b> It reached my mouth. That's finality.</div>`,
-        a: { cam: [-2.2, 2.2, 5], look: [0, 5.5, -5], drone: drone(0, 8, -5.5, 2.6), drift: 2 }, b: { cam: [1.6, 2.4, 4.8], look: [0, 5, -5], drone: drone(0.4, 8.2, -5.5, 2.6), drift: 2 } },
-      // 5 — BOLT: the runner takes off, camera swings behind, speed builds
-      { dur: 2000, cap: `<div class="c3-you"><b>YOU:</b> Catch me, ledger-boy.</div><div class="c3-big" style="font-size:40px">BOLT!</div>`,
-        a: { cam: [1.6, 2.4, 4.8], look: [0, 3, -6], drone: drone(0.4, 8.2, -5.5, 2.8), drift: 6, fov: 53 },
-        b: { cam: [0.4, 4.2, 8], look: [0, 1.6, -9], drone: drone(0, 7, -12, 2.6), drift: 30, fov: 60 } },
-      // 6 — THE STUMBLE: trips, drone lunges down — nearly caught
-      { dur: 1700, cap: `<div class="c3-big" style="font-size:38px">*STUMBLE*</div><div class="c3-sub">…almost.</div>`,
-        a: { cam: [0.4, 4.2, 8], look: [0, 1.6, -9], drone: drone(0, 7, -12, 2.6), drift: 30, ry: 0, pitch: 0.12, shake: 0, fov: 60 },
-        b: { cam: [-0.4, 3.3, 6.8], look: [0, 1.0, -7], drone: drone(0, 2.9, -3.6, 3.0), drift: 20, ry: -0.12, pitch: 0.95, shake: 0.5, fov: 62 } },
-      // 7 — RECOVER + HAND-OFF: steadies, camera settles to the exact gameplay chase cam
-      { dur: 2000, cap: ``, hint: true,
-        a: { cam: [-0.4, 3.3, 6.8], look: [0, 1.0, -7], drone: drone(0, 2.9, -3.6, 3.0), drift: 20, ry: -0.12, pitch: 0.95, shake: 0.5, fov: 62 },
+      // 0 — establish + push in (1.1s)
+      { dur: 1100, cap: `<div class="c3-big">ARCH CITY</div><div class="c3-sub">3 AM · one thing on your mind</div>`,
+        a: { cam: [7, 11, 20], look: [0, 2.4, -6], drift: 2 }, b: { cam: [2.4, 4, 7], look: [0, 2.2, -3], drift: 2 } },
+      // 1 — grab the Satoshi donut and bite it (1.5s)
+      { dur: 1500, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-big" style="font-size:38px">*CRUNCH*</div>`,
+        a: { cam: [1.3, 2.5, 2.8], look: [0, 2.2, -2.6], donut: donut(1.06), drift: 1 }, b: { cam: [1.1, 2.4, 2.7], look: [0, 2.2, -2.6], donut: donut(0.7), drift: 1 } },
+      // 2 — the Auditor drops in (1.3s)
+      { dur: 1300, cap: `<div class="c3-siren"></div><div class="c3-aud"><b>AUDITOR:</b> Unsettled pastry detected.</div>`,
+        a: { cam: [0, 3.6, 8.5], look: [0, 9, -6], drone: drone(0, 16, -6, 1.3), drift: 2 }, b: { cam: [-1.6, 2.6, 5], look: [0, 6, -5.5], drone: drone(0, 7, -5.5, 2.6), drift: 2 } },
+      // 3 — BOLT + near-trip (1.4s)
+      { dur: 1400, cap: `<div class="c3-you"><b>YOU:</b> Worth it.</div><div class="c3-big" style="font-size:38px">*STUMBLE*</div>`,
+        a: { cam: [-1.6, 2.6, 5], look: [0, 3.5, -6], drone: drone(0, 7, -6, 2.8), drift: 14, ry: 0, pitch: 0.1, shake: 0, fov: 56 },
+        b: { cam: [-0.3, 3.4, 6.9], look: [0, 1.1, -7], drone: drone(0, 3.1, -4, 3.0), drift: 26, ry: -0.12, pitch: 0.9, shake: 0.5, fov: 62 } },
+      // 4 — RECOVER + seamless hand-off to the gameplay chase cam (1.1s)
+      { dur: 1100, cap: ``, hint: true,
+        a: { cam: [-0.3, 3.4, 6.9], look: [0, 1.1, -7], drone: drone(0, 3.1, -4, 3.0), drift: 26, ry: -0.12, pitch: 0.9, shake: 0.4, fov: 62 },
         b: { cam: PLAY_CAM, look: PLAY_LOOK, drone: drone(0, 9, -22, 1.6), drift: 32, ry: 0, pitch: 0.05, shake: 0, fov: 58 } },
     ];
   }
