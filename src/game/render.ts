@@ -96,8 +96,12 @@ export class Renderer {
   private bakery!: THREE.Group;
   private obstacles!: ObstacleKit;
   private enPool: THREE.Mesh[] = [];
-  private ticks: THREE.Mesh[] = [];
-  private streaks: THREE.Mesh[] = [];
+  private readonly TICKS = 40;
+  private readonly STREAKS = 16;
+  private tickMesh!: THREE.InstancedMesh;   // 40 floor ticks → 1 draw call
+  private streakMesh!: THREE.InstancedMesh; // 16 speed streaks → 1 draw call
+  private streakMat!: THREE.MeshBasicMaterial;
+  private readonly dummy = new THREE.Object3D();
   private gatePool: THREE.Group[] = [];
   private flipMat!: THREE.MeshStandardMaterial;
   private parts: { m: THREE.Mesh; vx: number; vy: number; vz: number; life: number; max: number }[] = [];
@@ -221,21 +225,22 @@ export class Renderer {
       pave.position.set(sx * (roadEdge + 2.8), -0.06, -160); pave.receiveShadow = true; this.scene.add(pave);
     }
 
-    // Scrolling floor ticks (motion cue).
+    // Scrolling floor ticks (motion cue) — one InstancedMesh (was 40 draw calls).
     const tickGeo = new THREE.BoxGeometry(LANE_WIDTH * 3, 0.02, 0.25);
     const tickMat = new THREE.MeshBasicMaterial({ color: COL.tick });
-    for (let i = 0; i < 40; i++) {
-      const m = new THREE.Mesh(tickGeo, tickMat);
-      this.ticks.push(m); this.scene.add(m);
-    }
+    this.tickMesh = new THREE.InstancedMesh(tickGeo, tickMat, this.TICKS);
+    this.tickMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.tickMesh.frustumCulled = false;
+    this.scene.add(this.tickMesh);
 
-    // Speed streaks — only shown during Block Run (presentation spectacle).
+    // Speed streaks (Block Run only) — one InstancedMesh (was 16 draw calls).
     const streakGeo = new THREE.BoxGeometry(0.05, 0.05, 6);
-    const streakMat = new THREE.MeshBasicMaterial({ color: COL.streak, transparent: true, opacity: 0.6 });
-    for (let i = 0; i < 16; i++) {
-      const m = new THREE.Mesh(streakGeo, streakMat);
-      m.visible = false; this.streaks.push(m); this.scene.add(m);
-    }
+    this.streakMat = new THREE.MeshBasicMaterial({ color: COL.streak, transparent: true, opacity: 0.6 });
+    this.streakMesh = new THREE.InstancedMesh(streakGeo, this.streakMat, this.STREAKS);
+    this.streakMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.streakMesh.frustumCulled = false;
+    this.streakMesh.visible = false;
+    this.scene.add(this.streakMesh);
 
     // ARCH FLIP markers: a glowing GATEWAY FRAME (two posts + a top bar) in the flip
     // lane — not a ring, and sized to one lane so it doesn't obscure the view.
@@ -420,7 +425,7 @@ export class Renderer {
     for (const m of this.enPool) m.visible = false;
     for (const g of this.gatePool) g.visible = false;
     for (const p of this.parts) p.m.visible = false;
-    for (const s of this.streaks) s.visible = false;
+    this.streakMesh.visible = false;
     if (st.drone) {
       this.chaser.setVisible(true);
       // Face the viewer so the scanner eye reads during the confrontation; pitch down a
@@ -589,26 +594,30 @@ export class Renderer {
     this.chaser.group.scale.setScalar(THREE.MathUtils.lerp(0.44, 0.8, men));
     this.chaser.update(nowMs, men);
 
-    // Floor ticks scroll.
+    // Floor ticks scroll (instanced).
     const spacing = 4;
-    const span = this.ticks.length * spacing;
-    for (let i = 0; i < this.ticks.length; i++) {
+    const span = this.TICKS * spacing;
+    for (let i = 0; i < this.TICKS; i++) {
       const localZ = -((((i * spacing - d) % span) + span) % span);
-      this.ticks[i]!.position.set(0, 0.02, localZ + 8);
+      this.dummy.position.set(0, 0.02, localZ + 8); this.dummy.rotation.set(0, 0, 0); this.dummy.updateMatrix();
+      this.tickMesh.setMatrixAt(i, this.dummy.matrix);
     }
+    this.tickMesh.instanceMatrix.needsUpdate = true;
 
-    // Speed streaks (Block Run only): deterministic lateral lanes scrolling fast.
+    // Speed streaks (Block Run only): deterministic lateral lanes scrolling fast (instanced).
     const streaksOn = this.blockLevel > 0.15 && !this.reduced && !this.lowQ && !this.perf;
+    this.streakMesh.visible = streaksOn;
     const sspan = 90;
-    for (let i = 0; i < this.streaks.length; i++) {
-      const m = this.streaks[i]!;
-      m.visible = streaksOn;
-      if (!streaksOn) continue;
-      const lane = ((i % 4) - 1.5) * LANE_WIDTH * 1.15;
-      const base = (i * 37.7) % sspan;
-      const localZ = -((((base - d * 1.4) % sspan) + sspan) % sspan);
-      m.position.set(lane, 0.4 + ((i * 13) % 5) * 0.7, localZ + 10);
-      (m.material as THREE.MeshBasicMaterial).opacity = 0.5 * this.blockLevel;
+    if (streaksOn) {
+      this.streakMat.opacity = 0.5 * this.blockLevel;
+      for (let i = 0; i < this.STREAKS; i++) {
+        const lane = ((i % 4) - 1.5) * LANE_WIDTH * 1.15;
+        const base = (i * 37.7) % sspan;
+        const localZ = -((((base - d * 1.4) % sspan) + sspan) % sspan);
+        this.dummy.position.set(lane, 0.4 + ((i * 13) % 5) * 0.7, localZ + 10); this.dummy.rotation.set(0, 0, 0); this.dummy.updateMatrix();
+        this.streakMesh.setMatrixAt(i, this.dummy.matrix);
+      }
+      this.streakMesh.instanceMatrix.needsUpdate = true;
     }
 
     // Obstacles — authored hazard props, placed per type from their pools.
