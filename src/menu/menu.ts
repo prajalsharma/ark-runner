@@ -41,20 +41,15 @@ export class Menu {
 
   open(): void {
     this.attract.start();
-    if (!this.introSeen()) { this.markIntroSeen(); this.playIntro(); return; }
     this.renderHome();
   }
 
-  private introSeen(): boolean { try { return localStorage.getItem("archrunner.intro.v1") === "1"; } catch { return false; } }
-  private markIntroSeen(): void { try { localStorage.setItem("archrunner.intro.v1", "1"); } catch { /* ephemeral */ } }
-  private playIntro(): void {
-    this.attract.start(); // canvas visible; the cutscene then drives frames itself
-    new Cutscene(
-      this.attract,
-      this.overlay,
-      () => this.start("free"),
-      () => { this.attract.repaint(); this.renderHome(); },
-    ).play();
+  /** STORY button → the full narrative cutscene (the bakery heist). Returns to home when
+   *  it ends or is skipped — this is for watching, not for starting a run. */
+  private playStory(): void {
+    this.attract.start();
+    const back = (): void => { this.attract.repaint(); this.renderHome(); };
+    new Cutscene(this.attract, this.overlay, back, back, "story").play();
   }
 
   private renderHome(): void {
@@ -99,7 +94,7 @@ export class Menu {
     this.bind("#howto", () => this.showHowTo());
     this.bind("#board", () => this.showLeaderboard());
     this.bind("#runner", () => this.showRunner());
-    this.bind("#story", () => this.playIntro());
+    this.bind("#story", () => this.playStory());
     this.bind("#economy", () => this.showEconomy());
     this.bind("#vault", () => this.showVault());
     this.bind("#settings", () => this.showSettings());
@@ -232,6 +227,17 @@ export class Menu {
   private start(mode: Mode): void {
     // Daily Block cannot start without a verified wallet — route back through the gate.
     if (mode === "daily" && !(this.session && this.profile)) { this.openDailyBlock(); return; }
+    // Every run opens with a quick ~4.5s visual establish (the chase premise), then hands
+    // over control. Skippable. Also used by RUN AGAIN (via onReplay), the way Subway/Temple
+    // Run drop you into the chase each time rather than dumping you into the game cold.
+    this.game?.stop(); this.game = null; // stop() clears the old result card + disposes it
+    this.attract.start();
+    this.overlay.className = ""; this.overlay.innerHTML = "";
+    const go = (): void => this.launch(mode);
+    new Cutscene(this.attract, this.overlay, go, go, "quick").play();
+  }
+
+  private launch(mode: Mode): void {
     this.attract.stop();
     this.overlay.className = "";
     this.overlay.innerHTML = "";
@@ -242,7 +248,7 @@ export class Menu {
     // black screen when starting Free Run then Daily Block (or restarting via the menu).
     this.canvas = this.freshGameCanvas();
     const comp = mode === "daily" && this.session ? { address: this.session.address } : null;
-    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, onMenu: () => this.returnToMenu() });
+    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, onMenu: () => this.returnToMenu(), onReplay: () => this.start(mode) });
   }
 
   /** Swap the #scene canvas for a fresh one in the same DOM slot (same id/class/styles). */

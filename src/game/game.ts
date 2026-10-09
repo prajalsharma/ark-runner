@@ -17,7 +17,7 @@ import { recordRunStats } from "./achievements.ts";
 
 /** For Daily Block, the verified wallet identity the competitive run is recorded against. */
 export type CompetitionCtx = { address: string };
-export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
+export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void; onReplay?: () => void };
 
 type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; flowMult: number; alive: boolean };
 
@@ -37,6 +37,7 @@ export class Game {
   private cap: number;
   private onEnd?: (sim: RunSim) => void;
   private onMenu?: () => void;
+  private onReplay?: () => void;
   private ended = false;
   private recorded = false;
   private resultShown = false;
@@ -58,6 +59,7 @@ export class Game {
     this.comp = opts.comp ?? null;
     this.onEnd = opts.onEnd;
     this.onMenu = opts.onMenu;
+    this.onReplay = opts.onReplay;
     this.cap = this.mode === "daily" ? MATCH_SECONDS : 0;
     this.sim = new RunSim(opts.seed ?? this.newSeed(), { cap: this.cap });
     this.prev = this.snapshot();
@@ -173,7 +175,7 @@ export class Game {
       dailyBest: this.mode === "daily" && this.comp ? competitiveDailyBest(this.comp.address, this.dateKey) : undefined,
       compStatus,
       compDetail,
-      onRetry: () => this.restart(),
+      onRetry: () => (this.onReplay ? this.onReplay() : this.restart()),
       onShare: () => this.share(),
       onMenu: this.onMenu ? () => { this.onMenu?.(); } : undefined,
       unlocked: prog.unlocked.map((a) => a.title),

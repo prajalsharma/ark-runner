@@ -38,9 +38,34 @@ export class Cutscene {
   private distance = 0;
   private lastShot = -1;
 
-  constructor(private attract: Attract, private overlay: HTMLElement, private onPlay: () => void, private onSkip: () => void) {}
+  constructor(private attract: Attract, private overlay: HTMLElement, private onPlay: () => void, private onSkip: () => void, private variant: "story" | "quick" = "story") {}
 
   private shots(): Shot[] {
+    return this.variant === "quick" ? this.quickShots() : this.storyShots();
+  }
+
+  /** The per-run cold-open (~4.5s, skippable, mostly VISUAL): the Auditor lights up behind
+   *  you at the bakery (PENDING cue, no dialogue) → you bolt, it swoops → hand-off. Gives
+   *  every run context + stakes without a wall of text, the way Subway/Temple Run do. */
+  private quickShots(): Shot[] {
+    const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
+    return [
+      // caught: the terminal reads PENDING, the Auditor's eye ignites behind you
+      { dur: 1400, cap: `<div class="c3-siren"></div><div class="c3-term">PAYMENT: PENDING</div>`,
+        a: { cam: [1.6, 2.1, -2.4], look: [0, 2.0, 1.4], donut: { x: 0.12, y: 1.66, z: 0.5, scale: 0.7 }, drone: drone(0, 10, 5, 1.0), bakery: true, drift: 0 },
+        b: { cam: [0.7, 2.6, -3.0], look: [0, 4.2, 3.6], drone: drone(0, 5.4, 4.2, 2.7), bakery: true, drift: 0 } },
+      // BOLT: cut to a low behind-tracking shot; the Auditor swoops over, speed builds
+      { dur: 1700, cap: ``,
+        a: { cam: [0, 2.0, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 8, fov: 56 },
+        b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 26, fov: 60 } },
+      // hand-off: settle to the exact gameplay camera, GO
+      { dur: 1300, cap: ``, hint: true,
+        a: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 28, fov: 60 },
+        b: { cam: PLAY_CAM, look: PLAY_LOOK, drone: drone(0, 9, -20, 1.7), drift: 32, fov: 58 } },
+    ];
+  }
+
+  private storyShots(): Shot[] {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
     // ~4.2s cold-open (skippable), the donut-heist gag in five cuts: the crime (bite +
     // PENDING terminal) → the reveal (Auditor drops in) → the reaction ("that seems
