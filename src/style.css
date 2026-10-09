@@ -305,3 +305,16 @@ body {
 .setrow { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); margin-bottom: 8px; font-size: 13px; letter-spacing: 1px; color: #e9ecf5; }
 .settoggle { font: inherit; font-size: 12px; font-weight: 800; letter-spacing: 1px; cursor: pointer; min-width: 64px; padding: 8px 14px; border-radius: 8px; color: #07080c; background: linear-gradient(180deg,#ffb24d,#ff7a1a); border: none; }
 .settoggle:active { transform: translateY(1px); }
+
+/* Network switcher (testnet/mainnet) */
+.nettoggle { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,0.05); }
+.netbtn { flex: 1; font: inherit; font-size: 12px; font-weight: 800; letter-spacing: 2px; cursor: pointer; padding: 10px; border-radius: 9px; color: #8a90a6; background: transparent; border: none; }
+.netbtn.on { color: #07080c; background: linear-gradient(180deg,#ffb24d,#ff7a1a); }
+.livebadge { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 2px; color: #3ad17a; margin-bottom: 12px; }
+.livebadge .dot { width: 9px; height: 9px; border-radius: 50%; background: #3ad17a; box-shadow: 0 0 10px #3ad17a; animation: livepulse 1.2s infinite; }
+@keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.netempty { text-align: center; padding: 28px 16px; font-size: 16px; font-weight: 800; letter-spacing: 3px; color: #ffb24d; }
+.netempty .sub { font-size: 12px; font-weight: 400; letter-spacing: 1px; color: #aab0c4; margin-top: 10px; }
+.netempty.small { font-size: 13px; font-weight: 400; letter-spacing: 1px; color: #aab0c4; grid-column: 1 / -1; padding: 18px; }
+.card code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #ff9b4d; }
+@media (prefers-reduced-motion: reduce) { .livebadge .dot { animation: none; } }

@@ -16,8 +16,8 @@ import { detectWallets, InjectedWalletProvider, WALLET_LABEL } from "../wallet/a
 import { getProfile, createProfile, saveProfile, type PlayerProfile } from "../game/profile.ts";
 import { runnerLevel, unlockedIds, ACHIEVEMENTS } from "../game/achievements.ts";
 import { soundOn, setSound, reducedMotion, setReducedMotion, quality, setQuality } from "../game/settings.ts";
-import { simulate } from "../economy/simulator.ts";
-import { STRUCTURE_A, splitExact } from "../economy/distribution.ts";
+import { getNetwork, setNetwork, type NetworkMode } from "../chain/network.ts";
+import { fetchTestnetStatus } from "../chain/rpc.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
@@ -242,20 +242,40 @@ export class Menu {
   }
 
   private showEconomy(): void {
-    const r = simulate({ players: 100, entryAmount: 2000n, feeRateBps: 500, structureBps: STRUCTURE_A, participation: 0.6, maxEntriesPerPlayer: 3, whaleFraction: 0.02, seed: dailyNumber() });
-    const top = splitExact(r.prizeReserve, STRUCTURE_A);
-    const n = (b: bigint): string => Number(b).toLocaleString();
-    this.modal("ECONOMY · SIMULATION", `
-      <div class="lbnote" style="margin:0 0 10px"><b>DEMO · no real funds.</b> A sample Daily Block: 100 players, 2,000-sat entry, 5% fee, 70/20/10 prizes. <b>Entry-funded</b> — prizes come only from entries, never more than the pool (solvency enforced). No yield, no fake balances.</div>
-      <div class="profgrid">
-        <div><span class="pv">${r.totalEntries}</span><span class="pl">ENTRIES</span></div>
-        <div><span class="pv">${n(r.totalDeposits)}</span><span class="pl">POOL · sats</span></div>
-        <div><span class="pv">${n(r.prizeReserve)}</span><span class="pl">PRIZES · sats</span></div>
-        <div><span class="pv">${n(r.protocolRevenue)}</span><span class="pl">FEE · sats</span></div>
-        <div><span class="pv">${n(top[0]!)}</span><span class="pl">1ST PLACE</span></div>
-        <div><span class="pv">${r.capitalEfficiencyPct}%</span><span class="pl">TO PLAYERS</span></div>
-      </div>
-      <div class="lbnote">Entry tiers (FREE / BRONZE / SILVER / GOLD) are configurable. <b>No pay-to-win</b> — money picks your tier, skill picks your rank. Real entries/prizes settle on Arch once the competition program is deployed to testnet.</div>`);
+    const net = getNetwork();
+    const toggle = `<div class="nettoggle">
+      <button class="netbtn ${net === "testnet" ? "on" : ""}" data-net="testnet">TESTNET</button>
+      <button class="netbtn ${net === "mainnet" ? "on" : ""}" data-net="mainnet">MAINNET</button>
+    </div>`;
+    const body = net === "mainnet"
+      ? `${toggle}<div class="netempty">MAINNET — NOT LIVE<div class="sub">Nothing runs on mainnet yet. Switch to <b>Testnet</b> for live on-chain data.</div></div>`
+      : `${toggle}
+        <div class="livebadge"><span class="dot"></span> LIVE · ARCH TESTNET</div>
+        <div class="profgrid" id="livegrid">
+          <div><span class="pv" id="pv-block">…</span><span class="pl">BLOCK HEIGHT</span></div>
+          <div><span class="pv" id="pv-node">…</span><span class="pl">NODE</span></div>
+          <div><span class="pv" id="pv-hash">…</span><span class="pl">BEST BLOCK</span></div>
+          <div><span class="pv" id="pv-rpc">…</span><span class="pl">RPC LATENCY</span></div>
+        </div>
+        <div class="lbnote">Real data from <code>rpc.testnet.arch.network</code>. The Daily Block competition is <b>entry-funded</b> (70/20/10, 5% fee, FREE/BRONZE/SILVER/GOLD tiers, no pay-to-win); entries &amp; prizes settle here once the competition program is deployed. No yield, no fake balances.</div>`;
+    this.modal("ARCH NETWORK", body);
+    this.overlay.querySelectorAll<HTMLButtonElement>(".netbtn").forEach((b) => {
+      b.onclick = () => { setNetwork(b.dataset.net as NetworkMode); this.showEconomy(); };
+    });
+    if (net === "testnet") this.loadTestnet();
+  }
+
+  private loadTestnet(): void {
+    const set = (id: string, v: string): void => { const el = this.overlay.querySelector(id); if (el) el.textContent = v; };
+    fetchTestnetStatus().then((s) => {
+      set("#pv-block", s.blockCount.toLocaleString());
+      set("#pv-node", s.nodeReady ? "READY ✓" : "SYNCING");
+      set("#pv-hash", `${s.bestHash.slice(0, 6)}…${s.bestHash.slice(-4)}`);
+      set("#pv-rpc", `${s.latencyMs} ms`);
+    }).catch(() => {
+      const grid = this.overlay.querySelector("#livegrid");
+      if (grid) grid.innerHTML = `<div class="netempty small">Testnet unreachable right now — try again shortly.</div>`;
+    });
   }
 
   private showSettings(): void {
