@@ -6,7 +6,7 @@
  * second WebGL context on the game's.
  */
 import { RunSim } from "../game/sim.ts";
-import { Renderer } from "../game/render.ts";
+import { Renderer, type CineState } from "../game/render.ts";
 import { selectedCharacterColor } from "../game/characters.ts";
 
 export class Attract {
@@ -64,6 +64,12 @@ export class Attract {
     this.renderer.render(this.sim, now);
     this.raf = requestAnimationFrame(this.dolly);
   };
+
+  /** Render a scripted cinematic frame (the opening cutscene drives this). */
+  renderCine(nowMs: number, st: CineState): void { this.renderer.cutsceneFrame(nowMs, st); }
+
+  /** Repaint the clean static start-line frame (e.g. after the cutscene is skipped). */
+  repaint(): void { this.paint(); }
 
   /** Paint one static frame (the sim is never advanced, so nothing moves). */
   private paint(): void { this.renderer.render(this.sim, 0); }

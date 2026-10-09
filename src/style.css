@@ -50,6 +50,7 @@ body {
 .card .motiv.best { color: #ffd54a; font-weight: 800; font-size: 14px; }
 .card .unlock { margin-top: 8px; font-size: 11px; letter-spacing: 1px; color: #3ad17a; font-weight: 700; }
 .card .unlock.lvl { color: #9b6bff; }
+.card .unlock.more { margin-top: 4px; font-size: 9px; letter-spacing: 1.5px; color: #8a90a6; font-weight: 600; }
 .card .challenge-result { margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
 .card .challenge-result.met { color: #3ad17a; }
 .card .challenge-result.miss { color: #ffb24d; }
@@ -153,6 +154,24 @@ body {
 .cs-siren { position: absolute; inset: 0; z-index: 0; background: radial-gradient(60% 50% at 50% 45%, rgba(255,40,40,0.28), transparent 70%); animation: sirenFlash 0.5s steps(2) infinite; pointer-events: none; }
 @keyframes sirenFlash { 0%,100% { opacity: 0.25; } 50% { opacity: 0.7; } }
 @media (prefers-reduced-motion: reduce) { .cs-frame { animation: none; } .auditor { animation: none; } .cs-donut { animation: none; } .cs-siren { animation: none; } }
+
+/* ---- 3D cinematic cutscene (captions over the live scene) ---- */
+#overlay.cutscene3d { display: block; background: none; }
+.c3-caption { position: absolute; left: 50%; bottom: 11%; transform: translateX(-50%); width: 92%; max-width: 700px; text-align: center; animation: csIn 0.5s ease-out; pointer-events: none; }
+.c3-big { font-size: clamp(34px, 8vw, 58px); font-weight: 900; letter-spacing: 5px; text-shadow: 0 4px 30px rgba(0,0,0,0.85); }
+.c3-line { font-size: clamp(18px, 4vw, 26px); font-weight: 800; letter-spacing: 2px; text-shadow: 0 2px 16px rgba(0,0,0,0.8); }
+.c3-sub { font-size: 13px; letter-spacing: 3px; color: #d6dae6; margin-top: 10px; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
+.c3-you { font-size: clamp(15px, 3.8vw, 19px); color: #eef1f8; margin-top: 8px; text-shadow: 0 2px 12px #000; }
+.c3-you b { color: #33e1ff; }
+.c3-aud { font-size: clamp(15px, 3.8vw, 19px); color: #eef1f8; margin-top: 8px; text-shadow: 0 2px 12px #000; }
+.c3-aud b { color: #ff6b5b; }
+.c3-alert { font-size: clamp(22px, 5.5vw, 36px); font-weight: 900; letter-spacing: 3px; color: #ff5b5b; text-shadow: 0 0 26px rgba(255,59,59,0.8); }
+.c3-titlewrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; animation: csIn 0.6s ease-out; }
+.c3-titlewrap .title { font-size: clamp(44px, 12vw, 84px); text-shadow: 0 6px 40px rgba(0,0,0,0.8); }
+.c3-skip { position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; z-index: 3; font: inherit; font-size: 12px; letter-spacing: 2px; color: #d6dae6; background: rgba(10,12,20,0.6); border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; padding: 9px 16px; cursor: pointer; }
+.c3-siren { position: absolute; inset: 0; background: radial-gradient(60% 50% at 50% 40%, rgba(255,40,40,0.3), transparent 70%); animation: sirenFlash 0.5s steps(2) infinite; }
+.c3-hint { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); text-align: center; font-size: clamp(14px, 3.6vw, 18px); font-weight: 800; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 16px #000; animation: csIn 0.4s ease-out; pointer-events: none; }
+.c3-hintsub { font-size: 11px; letter-spacing: 3px; color: #ffd54a; margin-top: 8px; }
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
   20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
@@ -317,6 +336,18 @@ body {
 .profgrid > div { display: flex; flex-direction: column; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.04); }
 .profgrid .pv { font-size: 18px; font-weight: 800; color: #ffd54a; }
 .profgrid .pl { font-size: 9px; letter-spacing: 2px; color: #8a90a6; margin-top: 3px; }
+
+/* Achievements gallery — the real home for every "UNLOCKED" badge. */
+.plabel { font-size: 10px; letter-spacing: 3px; color: #8a90a6; margin: 16px 0 8px; text-align: center; }
+.badges { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 232px; overflow-y: auto; }
+.badge { display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); }
+.badge .bt { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; }
+.badge .bd { font-size: 9px; color: #8a90a6; line-height: 1.4; }
+.badge.got { border-color: rgba(58,209,122,0.4); background: rgba(58,209,122,0.08); }
+.badge.got .bt { color: #3ad17a; }
+.badge.locked { opacity: 0.55; }
+.badge.locked .bt { color: #8a90a6; }
+@media (max-width: 520px) { .badges { grid-template-columns: 1fr; } }
 
 /* Settings */
 .setrow { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); margin-bottom: 8px; font-size: 13px; letter-spacing: 1px; color: #e9ecf5; }

@@ -163,7 +163,12 @@ export class HUD {
     const chal = meta.challenge
       ? `<div class="challenge-result ${meta.challenge.met ? "met" : "miss"}">${meta.challenge.met ? "✓ CHALLENGE COMPLETE" : "✗ " + meta.challenge.goal} · ${meta.challenge.name}</div>`
       : "";
-    const unlocks = (meta.unlocked ?? []).map((t) => `<div class="unlock">★ UNLOCKED — ${t}</div>`).join("");
+    // Newly-earned badges. Cap the list so a big first run doesn't dump a green wall;
+    // the full set lives in PROFILE (so every badge named here has a real home).
+    const got = meta.unlocked ?? [];
+    const shown = got.slice(0, 3).map((t) => `<div class="unlock">★ ${t}</div>`).join("");
+    const more = got.length > 3 ? `<div class="unlock more">+${got.length - 3} more — see PROFILE</div>` : got.length ? `<div class="unlock more">view all in PROFILE</div>` : "";
+    const unlocks = shown + more;
     const levelUp = meta.leveledUp ? `<div class="unlock lvl">▲ RUNNER LEVEL ${meta.level}</div>` : "";
     this.overlay.innerHTML = `
       <div class="card">

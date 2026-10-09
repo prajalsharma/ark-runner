@@ -46,11 +46,12 @@ export class Menu {
   private introSeen(): boolean { try { return localStorage.getItem("archrunner.intro.v1") === "1"; } catch { return false; } }
   private markIntroSeen(): void { try { localStorage.setItem("archrunner.intro.v1", "1"); } catch { /* ephemeral */ } }
   private playIntro(): void {
-    this.attract.cinematic(true); // slow dolly through the city behind the cutscene
+    this.attract.start(); // canvas visible; the cutscene then drives frames itself
     new Cutscene(
+      this.attract,
       this.overlay,
-      () => { this.attract.cinematic(false); this.start("free"); },
-      () => { this.attract.cinematic(false); this.renderHome(); },
+      () => this.start("free"),
+      () => { this.attract.repaint(); this.renderHome(); },
     ).play();
   }
 
@@ -239,7 +240,14 @@ export class Menu {
     const best = bestEver();
     const runs = loadHistory().length;
     const charName = CHARACTERS.find((c) => c.id === p.characterId)?.name ?? "—";
-    const unlocked = unlockedIds().length;
+    const have = new Set(unlockedIds());
+    const unlocked = have.size;
+    // Real achievements gallery — every "UNLOCKED — X" badge from the result card has a
+    // home here: earned ones lit, the rest shown locked so you know what's left to chase.
+    const badges = ACHIEVEMENTS.map((a) => {
+      const got = have.has(a.id);
+      return `<div class="badge ${got ? "got" : "locked"}"><span class="bt">${got ? "★" : "✦"} ${a.title}</span><span class="bd">${a.desc}</span></div>`;
+    }).join("");
     this.modal("PLAYER PROFILE", `
       <div class="profgrid">
         <div><span class="pv">${p.displayName}</span><span class="pl">NAME</span></div>
@@ -249,7 +257,9 @@ export class Menu {
         <div><span class="pv">${unlocked}/${ACHIEVEMENTS.length}</span><span class="pl">ACHIEVEMENTS</span></div>
         <div><span class="pv">${charName}</span><span class="pl">RUNNER</span></div>
       </div>
-      <div class="lbnote">${this.shortAddr(p.walletAddress)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}. Your wallet is your identity; the name is just how you appear. Stats are local to this device until the Arch backend is live.</div>`);
+      <div class="plabel">ACHIEVEMENTS</div>
+      <div class="badges">${badges}</div>
+      <div class="lbnote">${this.shortAddr(p.walletAddress)} · ${this.isDemo ? "DEMO" : "BITCOIN TESTNET"}. Achievements are milestone badges (no gameplay boost) saved on this device. Skins unlock by best score — set yours in RUNNER. Stats move on-chain once the Arch backend is live.</div>`);
   }
 
   private showEconomy(): void {

@@ -18,6 +18,21 @@ const COL = {
   energy: 0xf7931a, tick: 0x2a2f42, streak: 0xffb24d, gate: 0xffd54a, // energy = Bitcoin orange
 };
 
+/** Scripted camera/actor state for one cinematic frame (the opening cutscene). */
+export type CineState = {
+  cam: [number, number, number];
+  look: [number, number, number];
+  distance: number;
+  runnerX: number;
+  runnerPhase: number;
+  runnerY?: number;      // vertical (trip dip / small hop)
+  runnerPitch?: number;  // forward lean, radians — the stumble/trip pose
+  shake?: number;        // camera shake 0..1 (impact of the near-catch)
+  fov?: number;          // override FOV (bolt widens for speed)
+  drone: { x: number; y: number; z: number; eye: number } | null;
+  donut: { x: number; y: number; z: number; scale: number } | null;
+};
+
 /** A Bitcoin coin face: orange disc with a white ₿. Baked once, used on the coin caps. */
 function makeBitcoinTexture(): THREE.Texture {
   if (typeof document === "undefined") return new THREE.Texture();
@@ -38,6 +53,7 @@ export class Renderer {
   private rig: RunnerRig;
   private city: CityScape;
   private auditor: THREE.Group;
+  private donut: THREE.Group;
   private obPool: THREE.Mesh[] = [];
   private enPool: THREE.Mesh[] = [];
   private ticks: THREE.Mesh[] = [];
@@ -154,6 +170,22 @@ export class Renderer {
     this.auditor.add(body, eye, ring);
     this.scene.add(this.auditor);
 
+    // The Satoshi donut (cutscene prop) — glazed orange torus with sprinkles. Hidden in play.
+    this.donut = new THREE.Group();
+    const dough = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.26, 16, 28), new THREE.MeshStandardMaterial({ color: 0xc87f2a, roughness: 0.6 }));
+    const glaze = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.2, 16, 28), new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff7a1a, emissiveIntensity: 0.6, roughness: 0.3 }));
+    glaze.position.z = 0.08;
+    this.donut.add(dough, glaze);
+    const sprinkleColors = [0x33e1ff, 0xff5bd1, 0x5bff9b, 0xffffff];
+    for (let i = 0; i < 10; i++) {
+      const sp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.14), new THREE.MeshStandardMaterial({ color: sprinkleColors[i % 4], emissive: sprinkleColors[i % 4], emissiveIntensity: 0.4 }));
+      const a = (i / 10) * Math.PI * 2;
+      sp.position.set(Math.cos(a) * 0.55, Math.sin(a) * 0.55, 0.18);
+      sp.rotation.z = a; this.donut.add(sp);
+    }
+    this.donut.visible = false;
+    this.scene.add(this.donut);
+
     // Player — a procedural jointed runner, not a box.
     this.rig = new RunnerRig(this.playerColor);
     this.scene.add(this.rig.group);
@@ -199,6 +231,45 @@ export class Renderer {
   setPlayerColor(hex: number): void {
     this.cPlayer.set(hex);
     this.rig.setColor(hex);
+  }
+
+  /** Render one scripted cinematic frame (the opening cutscene drives this). */
+  cutsceneFrame(nowMs: number, st: CineState): void {
+    (this.scene.background as THREE.Color).copy(this.cBg);
+    this.fog.color.copy(this.cBg); this.fog.far = 72;
+    this.city.update(st.distance);
+    this.rig.setColorObj(this.cPlayer);
+    const ry = st.runnerY ?? 0;
+    this.rig.update({ x: st.runnerX, y: ry, sliding: false, grounded: true, phase: st.runnerPhase, emissive: 0.9 });
+    // Trip/stumble: pitch the whole figure forward (gait still flails underneath).
+    this.rig.group.rotation.x = st.runnerPitch ?? 0;
+    // no sim → hide all gameplay pools
+    for (const m of this.obPool) m.visible = false;
+    for (const m of this.enPool) m.visible = false;
+    for (const g of this.gatePool) g.visible = false;
+    for (const p of this.parts) p.m.visible = false;
+    for (const s of this.streaks) s.visible = false;
+    if (st.drone) {
+      this.auditor.visible = true;
+      this.auditor.position.set(st.drone.x, st.drone.y, st.drone.z);
+      this.auditor.children[2]!.rotation.z = nowMs / 280;
+      const em = (this.auditor.children[1] as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      em.emissiveIntensity = st.drone.eye; em.emissive.setHex(st.drone.eye >= 2 ? 0xff2200 : 0xff5a00);
+    } else this.auditor.visible = false;
+    if (st.donut) {
+      this.donut.visible = true;
+      this.donut.position.set(st.donut.x, st.donut.y, st.donut.z);
+      this.donut.scale.setScalar(st.donut.scale);
+      this.donut.rotation.set(0.35, nowMs / 700, 0);
+    } else this.donut.visible = false;
+    this.cam.fov = st.fov ?? 52;
+    const sk = st.shake ?? 0;
+    const sx = sk ? (Math.random() - 0.5) * sk : 0;
+    const sy = sk ? (Math.random() - 0.5) * sk * 0.6 : 0;
+    this.cam.position.set(st.cam[0] + sx, st.cam[1] + sy, st.cam[2]);
+    this.cam.lookAt(st.look[0], st.look[1], st.look[2]);
+    this.cam.updateProjectionMatrix();
+    this.gl.render(this.scene, this.cam);
   }
 
   /** Release the WebGL context (called when a game ends, so contexts don't leak
@@ -259,6 +330,7 @@ export class Renderer {
     const emissive = Math.min(2.6, 0.6 + sim.flow * 0.12 + (sim.hyperFlow ? 0.6 : 0) + this.flipLevel * 0.8);
     this.cTmp.copy(this.cPlayer).lerp(this.cPlayerBlock, this.blockLevel).lerp(this.cPlayerFlip, this.flipLevel);
     this.rig.setColorObj(this.cTmp);
+    this.rig.group.rotation.x = 0; // clear any leftover cutscene stumble-lean
     this.rig.update({ x: sim.laneX, y: sim.y, sliding: sim.sliding, grounded: sim.grounded, phase: sim.distance * 1.15, emissive });
     this.lastPlayerX = sim.laneX;
     this.lastPlayerY = (sim.sliding ? 0.5 : 0.9) + sim.y;
@@ -295,7 +367,10 @@ export class Renderer {
 
     // The Auditor drone looms ~44 units ahead (you never catch it), bobbing + scanning;
     // its eye flares during Block Run / Hyper Flow. Eye faces the camera (local +z).
+    this.auditor.visible = true;
+    this.donut.visible = false; // donut is a cutscene-only prop
     this.auditor.position.set(Math.sin(nowMs / 1800) * 2.4, 8 + Math.sin(nowMs / 900) * 0.5, -44);
+    this.auditor.rotation.set(0, 0, 0);
     this.auditor.children[2]!.rotation.z = nowMs / 500; // scanning ring
     const eyeMat = (this.auditor.children[1] as THREE.Mesh).material as THREE.MeshStandardMaterial;
     eyeMat.emissiveIntensity = 1.2 + ((sim.hyperFlow || sim.blockRun) ? 1.0 : 0) + Math.sin(nowMs / 200) * 0.3;
