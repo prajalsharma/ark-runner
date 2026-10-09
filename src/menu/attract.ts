@@ -14,6 +14,9 @@ export class Attract {
   private renderer: Renderer;
   private sim: RunSim;
   private running = false;
+  private cine = false;
+  private raf = 0;
+  private lastT = 0;
   private readonly onResize: () => void;
 
   constructor() {
@@ -35,12 +38,32 @@ export class Attract {
 
   stop(): void {
     this.running = false;
+    this.cine = false;
+    cancelAnimationFrame(this.raf);
     this.canvas.classList.remove("show");
     window.removeEventListener("resize", this.onResize);
   }
 
   /** Live-recolour the backdrop runner (character preview). */
   setColor(hex: number): void { this.renderer.setPlayerColor(hex); if (this.running) this.paint(); }
+
+  /** Cinematic mode: a slow dolly through the city (used only during the cutscene). */
+  cinematic(on: boolean): void {
+    this.cine = on;
+    cancelAnimationFrame(this.raf);
+    if (on) { this.lastT = 0; this.raf = requestAnimationFrame(this.dolly); }
+    else this.paint();
+  }
+
+  private readonly dolly = (now: number): void => {
+    if (!this.cine) return;
+    if (!this.lastT) this.lastT = now;
+    const dt = Math.min(0.05, (now - this.lastT) / 1000);
+    this.lastT = now;
+    this.sim.distance += 9 * dt; // gentle forward drift
+    this.renderer.render(this.sim, now);
+    this.raf = requestAnimationFrame(this.dolly);
+  };
 
   /** Paint one static frame (the sim is never advanced, so nothing moves). */
   private paint(): void { this.renderer.render(this.sim, 0); }

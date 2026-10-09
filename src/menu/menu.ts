@@ -42,7 +42,12 @@ export class Menu {
   private introSeen(): boolean { try { return localStorage.getItem("archrunner.intro.v1") === "1"; } catch { return false; } }
   private markIntroSeen(): void { try { localStorage.setItem("archrunner.intro.v1", "1"); } catch { /* ephemeral */ } }
   private playIntro(): void {
-    new Cutscene(this.overlay, () => this.start("free"), () => this.renderHome()).play();
+    this.attract.cinematic(true); // slow dolly through the city behind the cutscene
+    new Cutscene(
+      this.overlay,
+      () => { this.attract.cinematic(false); this.start("free"); },
+      () => { this.attract.cinematic(false); this.renderHome(); },
+    ).play();
   }
 
   private renderHome(): void {
