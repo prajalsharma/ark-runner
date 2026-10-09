@@ -15,7 +15,16 @@ import { RunnerRig } from "./runner-rig.ts";
 import { ChaserRig } from "./chaser.ts";
 import { ObstacleKit } from "./obstacles.ts";
 import { CityScape } from "./cityscape.ts";
-import { reducedMotion, quality } from "./settings.ts";
+import { reducedMotion, quality, heroModel } from "./settings.ts";
+
+/** The hero interface render.ts drives — satisfied by BOTH the procedural RunnerRig and the
+ *  rigged-GLB HeroGLB, so either can be swapped in (see heroModel() in settings.ts). */
+export type Hero = {
+  readonly group: THREE.Group;
+  update(st: { x: number; y: number; sliding: boolean; grounded: boolean; phase: number; emissive: number }): void;
+  setColor(hex: number): void;
+  setColorObj(c: THREE.Color): void;
+};
 import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
 
 const COL = {
@@ -105,7 +114,7 @@ export class Renderer {
   readonly scene = new THREE.Scene();
   private cam: THREE.PerspectiveCamera;
   private gl: THREE.WebGLRenderer;
-  private rig: RunnerRig;
+  private rig: Hero;
   private city: CityScape;
   private chaser: ChaserRig;
   private menace = 0;          // eased 0..1 how hard the Auditor is bearing down
@@ -322,10 +331,14 @@ export class Renderer {
     this.heroShadow.position.set(0, 0.04, 0);
     this.scene.add(this.heroShadow);
 
-    // Player — a procedural jointed runner, not a box.
+    // Player hero. Default is the authored procedural jointed runner (RunnerRig). The rigged
+    // GLB Path-B hero (HeroGLB) is opt-in via heroModel() and is CODE-SPLIT — its GLTFLoader +
+    // decoder only load when selected, keeping the default bundle lean. HeroGLB itself falls
+    // back to the procedural rig if the asset fails, so the hero is ALWAYS present.
     this.rig = new RunnerRig(this.playerColor);
     this.rig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.scene.add(this.rig.group);
+    if (heroModel() === "glb") void this.swapToGLBHero();
 
     // Authored hazard props (per-type silhouette + telegraph), pooled.
     this.obstacles = new ObstacleKit(this.scene);
@@ -409,6 +422,21 @@ export class Renderer {
   setPlayerColor(hex: number): void {
     this.cPlayer.set(hex);
     this.rig.setColor(hex);
+  }
+
+  /** Opt-in: swap the procedural rig for the code-split rigged-GLB hero (Path B). The import
+   *  is dynamic so GLTFLoader + the decoder stay out of the default bundle. HeroGLB shows the
+   *  procedural rig until (and unless) the GLB loads, so there is never an empty hero. */
+  private async swapToGLBHero(): Promise<void> {
+    try {
+      const { HeroGLB } = await import("./hero-glb.ts");
+      const glb = new HeroGLB(this.playerColor);
+      glb.setColorObj(this.cPlayer);
+      this.scene.remove(this.rig.group);
+      this.rig = glb;
+      glb.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
+      this.scene.add(glb.group);
+    } catch { /* keep the procedural rig */ }
   }
 
   /** The opening bakery set: back wall + glowing ₿AKERY sign, a counter with donuts on a
