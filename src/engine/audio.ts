@@ -108,6 +108,18 @@ export class AudioManager {
     o.start(t); o.stop(t + dur + 0.02);
   }
 
+  // Coin pickups rise in pitch as a streak builds (resets between streaks) so repeats
+  // stay satisfying instead of flat. A gentle chime, not a beep.
+  private static COIN_SCALE = [880, 988, 1047, 1175, 1319, 1480, 1568, 1760];
+  playCoin(streak: number): void {
+    const f = AudioManager.COIN_SCALE[Math.min(Math.max(0, streak - 1), AudioManager.COIN_SCALE.length - 1)]!;
+    this.tone(f, 0.08, "triangle", 0.2);
+    this.tone(f * 2, 0.06, "sine", 0.08); // a little sparkle harmonic
+  }
+
+  /** A subtle rising tone as the Flow multiplier climbs — combo escalation. */
+  playFlow(step: number): void { this.tone(360 + step * 55, 0.07, "sine", 0.1); }
+
   play(ev: SfxEvent): void {
     switch (ev) {
       case "collect": this.tone(880, 0.09, "triangle", 0.22); break;

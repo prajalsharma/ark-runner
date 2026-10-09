@@ -16,7 +16,7 @@ import { recordRunStats } from "./achievements.ts";
 
 export type GameOpts = { mode?: Mode; seed?: number; onEnd?: (sim: RunSim) => void; onMenu?: () => void };
 
-type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; alive: boolean };
+type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; flowMult: number; alive: boolean };
 
 export class Game {
   sim: RunSim;
@@ -44,6 +44,8 @@ export class Game {
   private auditorN = 0;
   private slowFrames = 0;    // adaptive-perf: sustained jank → auto-downgrade effects
   private perfLocked = false;
+  private coinStreak = 0;    // consecutive coins (resets after a gap) → rising pickup pitch
+  private lastCoinAt = 0;
   private dateKey = dateKeyUTC();
 
   constructor(canvas: HTMLCanvasElement, hudEl: HTMLElement, overlayEl: HTMLElement, opts: GameOpts = {}) {
@@ -87,7 +89,7 @@ export class Game {
 
   private snapshot(): Snapshot {
     const s = this.sim;
-    return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, grounded: s.grounded, alive: s.alive };
+    return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, grounded: s.grounded, flowMult: s.flowMult, alive: s.alive };
   }
 
   private loop(now: number): void {
@@ -177,9 +179,18 @@ export class Game {
 
   private reactToEvents(): void {
     const s = this.sim, p = this.prev;
+    const now = performance.now();
     if (s.grounded && !p.grounded) this.audio.play("land");
-    if (s.collected > p.collected) { this.audio.play("collect"); this.renderer.burst("collect"); }
+    if (s.collected > p.collected) {
+      if (now - this.lastCoinAt > 800) this.coinStreak = 0; // streak breaks after a gap
+      this.coinStreak += s.collected - p.collected;
+      this.lastCoinAt = now;
+      this.audio.playCoin(this.coinStreak);
+      this.renderer.burst("collect");
+    }
     if (s.nearMisses > p.nearMisses) { this.audio.play("nearmiss"); this.renderer.addShake(0.12); }
+    // Rising Flow combo tone as the multiplier climbs (half-steps) — escalation feel.
+    if (Math.floor(s.flowMult * 2) > Math.floor(p.flowMult * 2) && s.flowMult > 1) this.audio.playFlow(Math.floor(s.flowMult * 2));
     if (s.perfects > p.perfects) { this.audio.play("perfect"); this.renderer.addShake(0.06); this.renderer.burst("perfect"); this.hud.toast("PERFECT", "perfect"); }
     if (s.blockRuns > p.blockRuns) { this.audio.play("blockstart"); this.hud.toast("BLOCK RUN", "block"); }
     if (s.flipActive && !p.flipActive) { this.audio.play("flip"); this.hud.toast("ARCH FLIP ×3", "flip"); }
@@ -252,6 +263,8 @@ export class Game {
     this.audio.startMusic();
     this.auditorAt = 260;
     this.auditorN = 0;
+    this.coinStreak = 0;
+    this.lastCoinAt = 0;
     this.hud.hideResult();
   }
 

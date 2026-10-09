@@ -3,7 +3,7 @@
  * deterministic: same seed + same inputs + these constants ⇒ same result,
  * on the client and on the server replay.
  */
-export const RULESET = "ARCHRUN_V1";
+export const RULESET = "ARCHRUN_V2"; // V2: gentler top speed + Block Run (human-playable)
 
 export const TICK_HZ = 60;
 export const DT = 1 / TICK_HZ;
@@ -15,8 +15,8 @@ export const LANE_SWITCH_SPEED = 12; // units/sec the runner slides between lane
 
 // Forward motion. Speed ramps with distance travelled.
 export const START_SPEED = 14; // units/sec
-export const MAX_SPEED = 42;
-export const SPEED_RAMP = 0.22; // speed gained per second
+export const MAX_SPEED = 38;    // gentler top speed (was 42 — felt too fast late-game)
+export const SPEED_RAMP = 0.19; // speed gained per second (slightly gentler ramp)
 export const PLAYER_DEPTH = 0.9; // collision half-length along Z
 
 // Jump / slide.
@@ -75,7 +75,7 @@ export const MATCH_SECONDS = 180; // competition-mode soft cap (endless otherwis
 export const BLOCK_START_SEG = 8;    // no block runs during the learning phase
 export const BLOCK_PERIOD_SEGS = 16; // one block run per this many segments
 export const BLOCK_LEN_SEGS = 3;     // how many segments a block run lasts
-export const BLOCK_SPEED_MULT = 1.3; // speed boost while in a block run
+export const BLOCK_SPEED_MULT = 1.16; // speed boost while in a block run (was 1.3 — too fast for humans)
 export const BLOCK_SCORE_MULT = 2;   // all points doubled during a block run
 
 /** True when segment `index` falls inside a Block Run band. Pure + deterministic. */

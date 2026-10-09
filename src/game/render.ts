@@ -155,7 +155,7 @@ export class Renderer {
       m.visible = false; this.obPool.push(m); this.scene.add(m);
     }
     // Bitcoin coins: orange disc with a ₿ face (texture on the caps), facing the camera.
-    const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.07, 22);
+    const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.08, 24);
     const btcTex = makeBitcoinTexture();
     const coinSide = new THREE.MeshStandardMaterial({ color: 0xc9790f, emissive: 0xf7931a, emissiveIntensity: 0.5, roughness: 0.4, metalness: 0.55 });
     const coinFace = new THREE.MeshStandardMaterial({ map: btcTex, emissiveMap: btcTex, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.4, metalness: 0.3 });
@@ -204,9 +204,9 @@ export class Renderer {
   /** Spawn a particle burst at the player (presentation only). */
   burst(kind: "collect" | "perfect" | "death" | "flip"): void {
     if (this.reduced || this.perf) return;
-    const n = kind === "death" ? 20 : kind === "collect" ? 6 : 12;
-    const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : 0xffd54a;
-    const speed = kind === "death" ? 9 : 5;
+    const n = kind === "death" ? 20 : kind === "collect" ? 10 : 12;
+    const color = kind === "death" ? 0xff3b3b : kind === "flip" ? 0xffe9a8 : kind === "collect" ? 0xffb347 : 0xffd54a;
+    const speed = kind === "death" ? 9 : kind === "collect" ? 6 : 5;
     let spawned = 0;
     for (const p of this.parts) {
       if (p.life > 0) continue;
@@ -331,8 +331,9 @@ export class Renderer {
     for (const e of v.energy) {
       if (ei >= this.enPool.length) break;
       const m = this.enPool[ei++]!;
-      m.position.set(e.lane * LANE_WIDTH, 0.6 + e.y, -(e.z - d));
-      m.rotation.set(Math.PI / 2, 0, nowMs / 600); // spin in-plane, ₿ facing camera
+      const bob = Math.sin(nowMs / 280 + e.id) * 0.08; // gentle float
+      m.position.set(e.lane * LANE_WIDTH, 0.65 + e.y + bob, -(e.z - d));
+      m.rotation.set(Math.PI / 2, 0, nowMs / 450); // faster, livelier spin; ₿ facing camera
       m.visible = true;
     }
     for (; ei < this.enPool.length; ei++) this.enPool[ei]!.visible = false;
