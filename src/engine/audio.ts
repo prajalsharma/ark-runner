@@ -16,6 +16,7 @@ export class AudioManager {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private limiter: DynamicsCompressorNode | null = null;
+  private hp: BiquadFilterNode | null = null;
   private hum: OscillatorNode | null = null;
   private humGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
@@ -33,28 +34,30 @@ export class AudioManager {
     const ctx = new Ctor();
     this.ctx = ctx;
     this.master = ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.8;
-    // A limiter on the bus so stacked events never clip into that harsh "speaker-breaking"
-    // distortion (WebAudio sums straight to the output with no headroom otherwise).
+    this.master.gain.value = this.muted ? 0 : 0.5; // quieter overall bed
+    // Bus chain: high-pass (kills speaker-blasting sub-bass) → limiter (no clipping) → out.
+    this.hp = ctx.createBiquadFilter();
+    this.hp.type = "highpass"; this.hp.frequency.value = 80; this.hp.Q.value = 0.7;
     this.limiter = ctx.createDynamicsCompressor();
-    this.limiter.threshold.value = -6; this.limiter.knee.value = 8; this.limiter.ratio.value = 12;
+    this.limiter.threshold.value = -10; this.limiter.knee.value = 10; this.limiter.ratio.value = 14;
     this.limiter.attack.value = 0.003; this.limiter.release.value = 0.25;
-    this.master.connect(this.limiter);
+    this.master.connect(this.hp);
+    this.hp.connect(this.limiter);
     this.limiter.connect(ctx.destination);
 
     this.humGain = ctx.createGain();
     this.humGain.gain.value = 0;
     this.humGain.connect(this.master);
     this.hum = ctx.createOscillator();
-    this.hum.type = "sawtooth";
-    this.hum.frequency.value = 55;
+    this.hum.type = "triangle"; // was a buzzy low sawtooth — too harsh on small speakers
+    this.hum.frequency.value = 90;
     this.hum.connect(this.humGain);
     this.hum.start();
     this.sustained.push(this.hum);
 
-    // Music bed: two detuned triangles (A2 + E3) through a lowpass pad.
+    // Music bed: two detuned triangles (A2 + E3) through a lowpass pad — kept subtle.
     this.musicGain = ctx.createGain();
-    this.musicGain.gain.value = this.muted ? 0 : 0.05;
+    this.musicGain.gain.value = this.muted ? 0 : 0.03;
     this.musicGain.connect(this.master);
     this.padFilter = ctx.createBiquadFilter();
     this.padFilter.type = "lowpass";
@@ -76,7 +79,7 @@ export class AudioManager {
     this.stopMusic();
     for (const o of this.sustained) { try { o.stop(); o.disconnect(); } catch { /* already stopped */ } }
     this.sustained = [];
-    this.hum = null; this.humGain = null; this.musicGain = null; this.padFilter = null; this.master = null; this.limiter = null;
+    this.hum = null; this.humGain = null; this.musicGain = null; this.padFilter = null; this.master = null; this.limiter = null; this.hp = null;
     const ctx = this.ctx; this.ctx = null;
     try { void ctx?.close(); } catch { /* best effort */ }
   }
@@ -84,8 +87,8 @@ export class AudioManager {
   setMuted(m: boolean): void {
     this.muted = m;
     writeMuted(m);
-    if (this.master) this.master.gain.value = m ? 0 : 0.9;
-    if (this.musicGain) this.musicGain.gain.value = m ? 0 : 0.05;
+    if (this.master) this.master.gain.value = m ? 0 : 0.5;
+    if (this.musicGain) this.musicGain.gain.value = m ? 0 : 0.03;
   }
   toggleMute(): boolean { this.setMuted(!this.muted); return this.muted; }
 
@@ -93,8 +96,8 @@ export class AudioManager {
   setDrive(speed: number, blockRun: boolean): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.hum?.frequency.setTargetAtTime(48 + speed * 2.1, t, 0.12);
-    this.humGain?.gain.setTargetAtTime(this.muted ? 0 : blockRun ? 0.07 : 0.035, t, 0.12);
+    this.hum?.frequency.setTargetAtTime(84 + speed * 1.1, t, 0.12);
+    this.humGain?.gain.setTargetAtTime(this.muted ? 0 : blockRun ? 0.02 : 0.009, t, 0.12);
     const sf = Math.min(1, Math.max(0, (speed - 14) / (42 * 1.3 - 14)));
     this.padFilter?.frequency.setTargetAtTime(380 + sf * 1500 + (blockRun ? 900 : 0), t, 0.25);
     this.arpSpeed = sf; this.arpBlock = blockRun;
@@ -112,7 +115,7 @@ export class AudioManager {
     if (!this.ctx || this.muted || this.ctx.state !== "running") return;
     const scale = [220, 277.18, 329.63, 440, 554.37]; // A pentatonic
     const freq = scale[this.arpStep % scale.length]! * (this.arpBlock ? 2 : 1);
-    this.tone(freq, 0.17, "triangle", 0.045 + this.arpSpeed * 0.045);
+    this.tone(freq, 0.17, "triangle", 0.026 + this.arpSpeed * 0.022);
     this.arpStep++;
   }
 
@@ -147,11 +150,11 @@ export class AudioManager {
       case "collect": this.tone(880, 0.09, "triangle", 0.22); break;
       case "nearmiss": this.tone(320, 0.11, "sawtooth", 0.12); break;
       case "perfect": this.tone(1320, 0.09, "square", 0.18); this.tone(1760, 0.12, "square", 0.12); break;
-      case "blockstart": this.tone(150, 0.28, "sawtooth", 0.3); this.tone(300, 0.3, "square", 0.16); break;
+      case "blockstart": this.tone(180, 0.26, "triangle", 0.16); this.tone(300, 0.3, "sine", 0.1); break;
       case "jump": this.tone(520, 0.1, "sine", 0.18); break;
       case "slide": this.tone(230, 0.13, "sawtooth", 0.14); break;
       case "land": this.tone(140, 0.08, "sine", 0.16); break;
-      case "death": this.tone(200, 0.45, "sawtooth", 0.32); this.tone(85, 0.5, "square", 0.28); break;
+      case "death": this.tone(200, 0.45, "sawtooth", 0.18); this.tone(120, 0.5, "sine", 0.14); break;
       case "flip": this.tone(440, 0.18, "square", 0.22); this.tone(660, 0.22, "square", 0.18); this.tone(880, 0.26, "square", 0.14); break;
       case "flipbank": this.tone(784, 0.1, "triangle", 0.26); this.tone(1047, 0.12, "triangle", 0.22); this.tone(1568, 0.16, "triangle", 0.18); break;
       case "record": [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => this.tone(f, 0.22, "triangle", 0.24), i * 90)); break;

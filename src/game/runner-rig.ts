@@ -15,8 +15,12 @@ export class RunnerRig {
   private body = new THREE.Group();   // torso+head+arms+pack (leans)
   private hipL = new THREE.Group();
   private hipR = new THREE.Group();
+  private kneeL = new THREE.Group();  // knee joints → real foot lift/plant, not skating
+  private kneeR = new THREE.Group();
   private shL = new THREE.Group();
   private shR = new THREE.Group();
+  private elbowL = new THREE.Group();
+  private elbowR = new THREE.Group();
   private suitMat: THREE.MeshStandardMaterial;   // the player-coloured run suit
   private gearMat: THREE.MeshStandardMaterial;   // boots / gloves / pack — dark metal
   private skinMat: THREE.MeshStandardMaterial;   // face
@@ -36,14 +40,18 @@ export class RunnerRig {
       m.position.y = -len / 2; parent.add(m); return m;
     };
 
-    // ---- Legs: pivot at the hip, limb hangs down, boot at the foot. ----
-    this.hipL.position.set(-0.17, 0.72, 0);
-    this.hipR.position.set(0.17, 0.72, 0);
-    for (const hip of [this.hipL, this.hipR]) {
-      limb(hip, 0.14, 0.1, 0.72, this.suitMat);                 // thigh→shin taper
+    // ---- Legs: hip → thigh → KNEE → shin → boot. The knee lets the foot lift on the
+    // swing and plant on the stance, so the run reads grounded instead of skating. ----
+    const legBuild = (hip: THREE.Group, knee: THREE.Group, sx: number): void => {
+      hip.position.set(sx * 0.17, 0.72, 0);
+      limb(hip, 0.14, 0.11, 0.38, this.suitMat);                // thigh
+      knee.position.y = -0.38; hip.add(knee);
+      limb(knee, 0.1, 0.08, 0.36, this.suitMat);                // shin
       const boot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.42), this.gearMat);
-      boot.position.set(0, -0.72, 0.07); hip.add(boot);          // boot, toe forward (+z)
-    }
+      boot.position.set(0, -0.4, 0.08); knee.add(boot);          // boot, toe forward (+z)
+    };
+    legBuild(this.hipL, this.kneeL, -1);
+    legBuild(this.hipR, this.kneeR, 1);
     this.group.add(this.hipL, this.hipR);
 
     // ---- Pelvis / belt (ties the legs to the torso) ----
@@ -77,14 +85,17 @@ export class RunnerRig {
     const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.06), this.visorMat);
     visor.position.set(0, 0.92, 0.19); this.body.add(visor);
 
-    // ---- Arms: pivot at the shoulder, limb hangs, glove at the hand. ----
-    this.shL.position.set(-0.32, 0.56, 0);
-    this.shR.position.set(0.32, 0.56, 0);
-    for (const sh of [this.shL, this.shR]) {
-      limb(sh, 0.1, 0.07, 0.5, this.suitMat);
-      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), this.gearMat);
-      glove.position.y = -0.52; sh.add(glove);
-    }
+    // ---- Arms: shoulder → upper → ELBOW → forearm → glove (elbow bend pumps the run). ----
+    const armBuild = (sh: THREE.Group, elbow: THREE.Group, sx: number): void => {
+      sh.position.set(sx * 0.32, 0.56, 0);
+      limb(sh, 0.1, 0.08, 0.28, this.suitMat);                  // upper arm
+      elbow.position.y = -0.28; sh.add(elbow);
+      limb(elbow, 0.08, 0.06, 0.26, this.suitMat);              // forearm
+      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), this.gearMat);
+      glove.position.y = -0.3; elbow.add(glove);
+    };
+    armBuild(this.shL, this.elbowL, -1);
+    armBuild(this.shR, this.elbowR, 1);
     this.body.add(this.shL, this.shR);
     this.group.add(this.body);
   }
@@ -101,26 +112,37 @@ export class RunnerRig {
     this.airF = lerp(this.airF, st.grounded ? 0 : 1, 0.25);
     this.slideF = lerp(this.slideF, st.sliding ? 1 : 0, 0.3);
 
-    const s = Math.sin(st.phase);
-    const swing = 0.75 * (1 - this.airF) * (1 - this.slideF);
+    const run = (1 - this.airF) * (1 - this.slideF);
+    const p = st.phase;
+    const s = Math.sin(p);
+    const swing = 0.8 * run;
 
-    // Run cycle (legs/arms counter-swing); blended out when airborne/sliding.
+    // Legs: hips counter-swing; knees flex on the recovery (foot lifts clear of the ground)
+    // and extend through the stance (foot planted) — a grounded cycle, not rigid rods skating.
     const runHipL = s * swing, runHipR = -s * swing;
-    const runShL = -s * swing * 0.85, runShR = s * swing * 0.85;
+    const kneeL = Math.max(0, Math.sin(p + 1.1)) * 1.3 * run;
+    const kneeR = Math.max(0, Math.sin(p + Math.PI + 1.1)) * 1.3 * run;
 
-    // Jump tuck: knees up, arms up. Slide: legs forward, arms back.
-    const jumpHip = -1.0 * this.airF, jumpSh = -1.6 * this.airF;
-    const slideHip = -1.1 * this.slideF, slideSh = 1.2 * this.slideF;
+    // Arms: shoulders counter-swing to the legs; elbows stay bent and pump.
+    const runShL = -s * swing * 0.8, runShR = s * swing * 0.8;
+    const elbow = 0.5 + 0.3 * run;
+
+    // Jump tuck: knees up, arms up. Slide: legs forward + low, arms back.
+    const jumpHip = -0.9 * this.airF, jumpKnee = 1.5 * this.airF, jumpSh = -1.5 * this.airF;
+    const slideHip = -1.1 * this.slideF, slideKnee = 0.4 * this.slideF, slideSh = 1.2 * this.slideF;
 
     this.hipL.rotation.x = runHipL + jumpHip + slideHip;
     this.hipR.rotation.x = runHipR + jumpHip + slideHip;
+    this.kneeL.rotation.x = kneeL + jumpKnee + slideKnee;
+    this.kneeR.rotation.x = kneeR + jumpKnee + slideKnee;
     this.shL.rotation.x = runShL + jumpSh + slideSh;
     this.shR.rotation.x = runShR + jumpSh + slideSh;
+    this.elbowL.rotation.x = -elbow; this.elbowR.rotation.x = -elbow;
     // A little arm splay so the swing reads in 3D, not just fore/aft.
     this.shL.rotation.z = 0.12; this.shR.rotation.z = -0.12;
 
-    // Torso lean + bob; crouch flat when sliding; lean into the run.
-    const bob = Math.abs(Math.sin(st.phase)) * 0.05 * (1 - this.airF) * (1 - this.slideF);
+    // Torso lean + a bob that dips on each foot-plant (twice per stride) for weight.
+    const bob = Math.abs(Math.cos(p)) * 0.045 * run;
     this.body.rotation.x = lerp(0.14, 0, this.airF) + this.slideF * 1.0;
     this.group.position.y = st.y + bob;
     this.group.scale.y = lerp(1, 0.58, this.slideF);
