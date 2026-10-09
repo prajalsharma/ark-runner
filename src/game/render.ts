@@ -61,6 +61,7 @@ export class Renderer {
   private chaser: ChaserRig;
   private menace = 0;          // eased 0..1 how hard the Auditor is bearing down
   private lastNearMiss = 0;    // to detect a fresh near-miss → surge
+  private stumbleT = 0;        // >0 while the runner trips & recovers from a close call
   private donut: THREE.Group;
   private obstacles!: ObstacleKit;
   private enPool: THREE.Mesh[] = [];
@@ -390,6 +391,18 @@ export class Renderer {
     const dt = this.lastNow ? Math.min(0.05, (nowMs - this.lastNow) / 1000) : 0.016;
     this.lastNow = nowMs;
 
+    // Close call → STUMBLE: on a fresh near-miss the runner trips and recovers, the camera
+    // jolts, and the Auditor surges to your heels (Temple Run's near-catch beat). Driven
+    // from the sim's deterministic near-miss count; presentation only (no physics change).
+    const freshNearMiss = sim.nearMisses > this.lastNearMiss;
+    if (freshNearMiss) {
+      this.lastNearMiss = sim.nearMisses;
+      this.stumbleT = 0.55;
+      this.menace = Math.min(1, this.menace + 0.5);
+      this.addShake(0.6);
+    }
+    this.stumbleT = Math.max(0, this.stumbleT - dt);
+
     // Block Run / ARCH FLIP intensity ease in/out so colour + FOV transitions are smooth.
     this.blockLevel += ((sim.blockRun ? 1 : 0) - this.blockLevel) * 0.08;
     this.flipLevel += ((sim.flipActive ? 1 : 0) - this.flipLevel) * 0.1;
@@ -401,6 +414,13 @@ export class Renderer {
     this.rig.setColorObj(this.cTmp);
     this.rig.group.rotation.x = 0; // clear any leftover cutscene stumble-lean
     this.rig.update({ x: sim.laneX, y: sim.y, sliding: sim.sliding, grounded: sim.grounded, phase: sim.distance * 1.15, emissive });
+    // Apply the stumble lurch over the gait: a quick forward pitch + dip that recovers.
+    if (this.stumbleT > 0 && !this.reduced) {
+      const ph = 1 - this.stumbleT / 0.55;          // 0 → 1 over the stumble
+      const amt = Math.sin(ph * Math.PI);            // rise then recover
+      this.rig.group.rotation.x = amt * 0.6;         // trip forward
+      this.rig.group.position.y += -amt * 0.12;      // knees buckle
+    }
     this.lastPlayerX = sim.laneX;
     this.lastPlayerY = (sim.sliding ? 0.5 : 0.9) + sim.y;
 
@@ -438,9 +458,8 @@ export class Renderer {
     // the runner is slow, and bleeds off as they speed up / flow — so it surges to your
     // heels when you scrape past danger and falls back when you're clean. Honest tension,
     // driven only from sim state (no fake catch — it never actually ends the run).
-    if (sim.nearMisses > this.lastNearMiss) { this.menace = Math.min(1, this.menace + 0.5); this.lastNearMiss = sim.nearMisses; }
-    // Cruising menace stays low (it hangs back, small + high); a near-miss spikes it so it
-    // SWOOPS down to your heels, then decays as you pull away. Block/Hyper keeps it engaged.
+    // Cruising menace stays low (it hangs back, small + high); a near-miss spikes it (above)
+    // so it SWOOPS down to your heels, then decays as you pull away. Block/Hyper keeps it in.
     const menaceTarget = Math.min(0.55, 0.06 + (1 - speedFrac) * 0.22 + (sim.flow < 1 ? 0.08 : 0));
     this.menace += ((Math.max(menaceTarget, this.menace * 0.985) - this.menace)) * 0.06;
     const men = (sim.hyperFlow || sim.blockRun) ? Math.max(this.menace, 0.45) : this.menace;
