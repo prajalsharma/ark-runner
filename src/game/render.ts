@@ -317,8 +317,11 @@ export class Renderer {
       if (o.type === "WALL") { m.scale.set(LANE_WIDTH * 0.82, h, 1.2); m.position.set(o.lane * LANE_WIDTH, h / 2, localZ); mat.color.setHex(COL.wall); mat.emissive.setHex(0x3a0000); }
       else if (o.type === "LOW") { m.scale.set(LANE_WIDTH * 0.9, h, 1.0); m.position.set(o.lane * LANE_WIDTH, h / 2, localZ); mat.color.setHex(COL.low); mat.emissive.setHex(0x3a2200); }
       else if (o.type === "HIGH") { m.scale.set(LANE_WIDTH * 0.9, 0.5, 1.0); m.position.set(o.lane * LANE_WIDTH, 2.3, localZ); mat.color.setHex(COL.high); mat.emissive.setHex(0x2a1550); }
-      else { m.scale.set(LANE_WIDTH * 0.88, 0.4, 2.4); m.position.set(o.lane * LANE_WIDTH, -0.25, localZ); mat.color.setHex(COL.pit); mat.emissive.setHex(0x000000); }
-      mat.emissiveIntensity = 0.5 + this.blockLevel * 0.6;
+      else { // PIT — a GLOWING red hazard gap so it's unmistakable (was near-black = invisible). Jump it.
+        m.scale.set(LANE_WIDTH * 0.92, 0.12, 2.8); m.position.set(o.lane * LANE_WIDTH, 0.06, localZ);
+        mat.color.setHex(0x2a0608); mat.emissive.setHex(0xff3322);
+      }
+      mat.emissiveIntensity = (o.type === "PIT" ? 1.2 : 0.5) + this.blockLevel * 0.6;
       m.visible = localZ > -62 && localZ < 10;
     }
     for (; oi < this.obPool.length; oi++) this.obPool[oi]!.visible = false;

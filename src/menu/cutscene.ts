@@ -16,12 +16,14 @@ export class Cutscene {
 
   private shots(): Shot[] {
     return [
-      { ms: 3200, html: `<div class="cs-cap big-cap">THE ARCH CITY</div><div class="cs-sub">every block tracked · every move measured</div>` },
-      { ms: 3200, html: `<div class="cs-cap">One runner found a hidden route through the settlement grid…</div>` },
-      { ms: 3000, html: `<div class="cs-graffiti">PROOF OF FUN</div><div class="cs-sub">…and left a message.</div>` },
-      { ms: 2800, html: `${AUDITOR}<div class="cs-cap alert">“UNAUTHORIZED FUN DETECTED.”</div>` },
-      { ms: 3200, html: `${AUDITOR}<div class="cs-line"><b>AUDITOR:</b> Citizen. Please remain stationary.</div><div class="cs-line you"><b>YOU:</b> Absolutely not.</div>` },
-      { ms: 3400, html: `${AUDITOR}<div class="cs-line"><b>AUDITOR:</b> You have violated approximately seventeen regulations.</div><div class="cs-line you"><b>YOU:</b> Only seventeen?</div>` },
+      { ms: 3000, html: `<div class="cs-cap big-cap">THE ARCH CITY</div><div class="cs-sub">3 AM · you are broke · you want one thing</div>` },
+      { ms: 2800, html: `<div class="cs-graffiti" style="font-size:72px">🍩</div><div class="cs-cap">THE LEGENDARY ORANGE SATOSHI DONUT</div>` },
+      { ms: 2800, html: `<div class="cs-cap alert">PAYMENT: PENDING…</div><div class="cs-sub">the bakery terminal is thinking about it</div>` },
+      { ms: 3000, html: `<div class="cs-cap">You look at the donut. You look at the terminal.</div><div class="cs-line you"><b>YOU:</b> …I'll take the risk.</div><div class="cs-sub">*bite*</div>` },
+      { ms: 2800, html: `${AUDITOR}<div class="cs-cap alert">“UNSETTLED PASTRY DETECTED.”</div>` },
+      { ms: 3600, html: `${AUDITOR}<div class="cs-line"><b>AUDITOR:</b> Citizen. Your pastry transaction has not reached finality.</div><div class="cs-line you"><b>YOU:</b> It's a donut. How much finality does it need?</div>` },
+      { ms: 3800, html: `${AUDITOR}<div class="cs-line"><b>AUDITOR:</b> Please return the asset in its original condition.</div><div class="cs-line you"><b>YOU:</b> You want the bitten half or the emotionally significant half?</div>` },
+      { ms: 2600, html: `${AUDITOR}<div class="cs-line"><b>AUDITOR:</b> Running will add a procedural fee.</div>` },
       { ms: 0, html: `<div class="title cs-title"><span class="accent">ARCH</span> RUNNER</div><div class="cs-sub">RUN THE BLOCK · BREAK THE SCORE</div><button id="cs-run" class="btn" style="max-width:320px;margin-top:20px">RUN</button>` },
     ];
   }
