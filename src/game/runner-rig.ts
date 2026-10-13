@@ -73,7 +73,8 @@ export class RunnerRig {
   private gearMat: THREE.MeshStandardMaterial;   // ribbed cuffs / hems / sneaker upper (dark)
   private skinMat: THREE.MeshStandardMaterial;   // FROG SKIN — head + hands (player-coloured; default orange)
   private whiteMat: THREE.MeshStandardMaterial;  // sneaker sole + 3 stripes + eye whites + ARCH wordmark
-  private pupilMat: THREE.MeshStandardMaterial;  // frog pupils (black)
+  private pupilMat: THREE.MeshStandardMaterial;  // frog pupils (black, glossy/wet)
+  private inkMat: THREE.MeshStandardMaterial;    // matte black line-art (eye outline, mouth, nostrils)
   private visorMat: THREE.MeshPhysicalMaterial;  // tiny neon accent (sneaker toe tab) to fit the Tron world
 
   private slideF = 0;  // eased 0..1 slide blend
@@ -106,6 +107,7 @@ export class RunnerRig {
     this.skinMat = new THREE.MeshPhysicalMaterial({ color, emissive: new THREE.Color(color).multiplyScalar(0.16), emissiveIntensity: 0.28, roughness: 0.42, metalness: 0.0, clearcoat: 0.6, clearcoatRoughness: 0.5 });
     this.whiteMat = new THREE.MeshStandardMaterial({ color: 0xf3f3ee, roughness: 0.5, metalness: 0.05 });
     this.pupilMat = new THREE.MeshPhysicalMaterial({ color: 0x08080b, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 }); // wet, glossy eyes
+    this.inkMat = new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.92, metalness: 0.0 }); // matte line-art (no chrome glint)
     // One small neon tab on the sneakers keeps a Tron spark on an otherwise clean cartoon.
     this.visorMat = new THREE.MeshPhysicalMaterial({ color: 0x0a0c12, emissive: 0xff7a1a, emissiveIntensity: 1.3, roughness: 0.3, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.2 });
 
@@ -219,39 +221,44 @@ export class RunnerRig {
     const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.1, 32, 24), this.skinMat);
     jaw.position.set(0, -0.11, 0.045); jaw.scale.set(1.08, 0.7, 0.92); this.hood.add(jaw);
 
-    // Big friendly frog eyes: round glossy domes high on the head, with a RELAXED half-lid
-    // (the chill Pepe look, not angry) and a catch-light so they feel alive.
+    // Big hooded PEPE eyes: large white domes bulging up & close-set, a dark cartoon OUTLINE
+    // ring, a small low pupil, and a heavy orange upper lid (the half-closed smug gaze).
     const eye = (ex: number): void => {
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.075, 40, 30), this.whiteMat);
-      ball.position.set(ex * 0.073, 0.112, 0.055); this.hood.add(ball);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.036, 28, 22), this.pupilMat);
-      pupil.position.set(ex * 0.072, 0.092, 0.118); pupil.scale.set(0.95, 1.0, 0.9); this.hood.add(pupil); // gazes fwd/down
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 10), this.whiteMat);
-      glint.position.set(ex * 0.064, 0.104, 0.142); this.hood.add(glint); // lively catch-light
-      // Smooth orange upper lid: a spherical cap over the eyeball, drooped to a bit past half —
-      // the heavy-lidded, chill Pepe gaze (not wide-eyed, not a scowl).
-      const lid = new THREE.Mesh(new THREE.SphereGeometry(0.08, 40, 24, 0, Math.PI * 2, 0, Math.PI * 0.6), this.skinMat);
-      lid.position.set(ex * 0.073, 0.116, 0.055); lid.rotation.x = 0.46; lid.scale.set(1.03, 1.0, 1.03); this.hood.add(lid);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.084, 44, 32), this.whiteMat);
+      ball.position.set(ex * 0.07, 0.115, 0.05); this.hood.add(ball);
+      // Dark matte outline around the eye socket (the inked Pepe line).
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.0085, 14, 32), this.inkMat);
+      rim.position.set(ex * 0.07, 0.112, 0.118); rim.rotation.x = -0.15; rim.scale.set(1.0, 0.92, 1); this.hood.add(rim);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.03, 28, 22), this.pupilMat);
+      pupil.position.set(ex * 0.052, 0.088, 0.128); pupil.scale.set(0.95, 1.05, 0.9); this.hood.add(pupil); // small, low & inward
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 10), this.whiteMat);
+      glint.position.set(ex * 0.045, 0.098, 0.15); this.hood.add(glint); // catch-light
+      // Heavy orange upper lid covering the top ~half → the hooded, chill Pepe look.
+      const lid = new THREE.Mesh(new THREE.SphereGeometry(0.088, 44, 26, 0, Math.PI * 2, 0, Math.PI * 0.62), this.skinMat);
+      lid.position.set(ex * 0.07, 0.118, 0.05); lid.rotation.x = 0.5; lid.scale.set(1.02, 1.0, 1.02); this.hood.add(lid);
     };
     eye(-1); eye(1);
     // The two eyes sit close and bulge together — a soft orange bridge fills the gap between them.
-    const bridge = new THREE.Mesh(new THREE.SphereGeometry(0.05, 32, 24), this.skinMat);
-    bridge.position.set(0, 0.1, 0.06); bridge.scale.set(0.9, 0.8, 0.7); this.hood.add(bridge);
+    const bridge = new THREE.Mesh(new THREE.SphereGeometry(0.055, 32, 24), this.skinMat);
+    bridge.position.set(0, 0.105, 0.055); bridge.scale.set(0.95, 0.85, 0.72); this.hood.add(bridge);
 
     // Nostrils: two small, subtle dimples on top of the snout.
     for (const ex of [-1, 1]) {
-      const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.01, 16, 12), this.pupilMat);
-      nostril.position.set(ex * 0.028, 0.004, 0.2); nostril.scale.set(1, 1, 0.6); this.hood.add(nostril);
+      const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.011, 16, 12), this.inkMat);
+      nostril.position.set(ex * 0.03, 0.01, 0.205); nostril.scale.set(1, 1, 0.6); this.hood.add(nostril);
     }
-    // Wide Pepe SMILE: a curved dark mouth (the bottom half of a torus → a ∪), flattened in the
-    // GEOMETRY so the chew (which scales mouthMesh.y) opens it into a grin rather than distorting
-    // a baked mesh-scale. rotation.z = π turns the ∩ arc into a smile.
-    const mouthGeo = new THREE.TorusGeometry(0.092, 0.013, 16, 36, Math.PI); mouthGeo.scale(1.2, 0.5, 0.5);
-    const mouth = new THREE.Mesh(mouthGeo, this.pupilMat);
-    mouth.position.set(0, -0.058, 0.188); mouth.rotation.z = Math.PI; this.hood.add(mouth); this.mouthMesh = mouth;
-    // A soft orange upper-lip ridge riding just over the smile (the signature Pepe lip).
-    const upperLip = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 14, 32, Math.PI), this.skinMat);
-    upperLip.scale.set(1.15, 0.42, 0.5); upperLip.position.set(0, -0.052, 0.19); upperLip.rotation.z = Math.PI; this.hood.add(upperLip);
+    // ---- The signature PEPE LIPS: a wide protruding mouth with a FAT lower lip ----
+    // Lower lip: a big rounded orange bulge jutting forward + down (the defining Pepe feature).
+    const lowerLip = new THREE.Mesh(new THREE.CapsuleGeometry(0.038, 0.11, 8, 20), this.skinMat);
+    lowerLip.rotation.z = Math.PI / 2; lowerLip.position.set(0, -0.098, 0.2); lowerLip.scale.set(1, 1, 0.78); this.hood.add(lowerLip);
+    // Upper lip: a thinner orange ridge over the mouth line.
+    const upperLip = new THREE.Mesh(new THREE.CapsuleGeometry(0.024, 0.12, 8, 20), this.skinMat);
+    upperLip.rotation.z = Math.PI / 2; upperLip.position.set(0, -0.052, 0.198); upperLip.scale.set(1, 1, 0.7); this.hood.add(upperLip);
+    // The mouth line itself: a WIDE MATTE dark seam between the lips (opens on the chew). The thin
+    // shape is baked into the geometry so the chew's scale.y opens it from a line, not a sphere.
+    const mouthGeo = new THREE.SphereGeometry(0.1, 40, 24); mouthGeo.scale(1.35, 0.12, 0.35);
+    const mouth = new THREE.Mesh(mouthGeo, this.inkMat);
+    mouth.position.set(0, -0.075, 0.205); this.hood.add(mouth); this.mouthMesh = mouth;
     // Cheeks (frog): smooth, nearly flat, puff out on the chew.
     for (const ex of [-1, 1]) {
       const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.052, 28, 20), this.skinMat);
@@ -284,11 +291,11 @@ export class RunnerRig {
       cuff.position.y = -0.28; elbow.add(cuff);                 // ribbed sleeve cuff at the wrist
       // Hand: a smooth rounded frog fist — a sphere palm with rounded finger + thumb capsules.
       const hand = sx > 0 ? this.handR : new THREE.Group(); hand.position.y = -0.33; elbow.add(hand);
-      const palm = new THREE.Mesh(new THREE.SphereGeometry(0.052, 28, 22), this.skinMat);
+      const palm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 28, 22), this.skinMat);
       palm.position.y = 0.0; palm.scale.set(1.0, 1.08, 0.95); hand.add(palm);
       for (let f = 0; f < 4; f++) {
-        const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.0135, 0.03, 6, 12), this.skinMat);
-        finger.position.set(-0.03 + f * 0.02, -0.052, 0.028); finger.rotation.x = 0.5; hand.add(finger); // curled over
+        const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.015, 0.032, 6, 12), this.skinMat);
+        finger.position.set(-0.033 + f * 0.022, -0.058, 0.032); finger.rotation.x = 0.5; hand.add(finger); // curled over
         if (sx > 0) this.fingersR.push(finger);
       }
       const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.015, 0.025, 6, 12), this.skinMat);
@@ -347,7 +354,7 @@ export class RunnerRig {
     if (this.thumbR) this.thumbR.rotation.z = 0.7;
     if (this.cheekL) this.cheekL.scale.set(1, 1, 0.5);
     if (this.cheekR) this.cheekR.scale.set(1, 1, 0.5);
-    if (this.mouthMesh) { this.mouthMesh.scale.set(1, 1, 1); this.mouthMesh.position.y = -0.058; }
+    if (this.mouthMesh) { this.mouthMesh.scale.set(1, 1, 1); this.mouthMesh.position.y = -0.075; }
     this.skinMat.emissiveIntensity = 0.25 + st.emissive * 0.3; // the frog "charges" with flow/Block/Flip
     this.visorMat.emissiveIntensity = 1.2 + st.emissive * 0.4;
 
@@ -457,16 +464,19 @@ export class RunnerRig {
     // at a=1 brings the fist to world ≈ (0, 1.52, -0.34) — right at the lips, on the −z face
     // side — by adducting across the body (shR.z) rather than flaring out to the side. On the
     // flinch the hand jerks back from the mouth (arm drops a little).
-    this.shR.rotation.x = lerp(0.2, -1.15, a) + fl * 0.5; this.shR.rotation.z = lerp(-0.14, -0.9, a); this.elbowR.rotation.x = lerp(-0.3, -1.4, a) + fl * 0.4;
-    // Left arm: relaxed at the side; flies up defensively as he recoils.
-    this.shL.rotation.x = 0.18 - fl * 1.5; this.shL.rotation.z = 0.22 + fl * 0.3; this.elbowL.rotation.x = -0.55 - fl * 0.8;
+    // Rest (a=0): arms hang but ABDUCTED outward (shR.z/shL.z) so the orange fists clear the
+    // baggy hoodie and read at the sides (hanging straight down tucked them inside). a=1: the
+    // right arm swings up & across to the mouth.
+    this.shR.rotation.x = lerp(0.12, -1.15, a) + fl * 0.5; this.shR.rotation.z = lerp(0.45, -0.9, a); this.elbowR.rotation.x = lerp(-0.35, -1.4, a) + fl * 0.4;
+    // Left arm stays abducted at the side (fist visible); flies up on the recoil.
+    this.shL.rotation.x = 0.12 - fl * 1.6; this.shL.rotation.z = -0.45 + fl * 0.3; this.elbowL.rotation.x = -0.35 - fl * 0.5;
     // Fingers curl to GRIP the donut; thumb wraps across the top.
     for (const fg of this.fingersR) fg.rotation.x = lerp(0.5, 1.15, gr);
     if (this.thumbR) { this.thumbR.rotation.z = lerp(0.7, 1.15, gr); this.thumbR.rotation.x = lerp(0, -0.5, gr); }
     // Cheeks puff + mouth opens/closes on the chew (a tiny munch).
     if (this.cheekL) this.cheekL.scale.set(1 + ch * 0.6, 1 + ch * 0.5, 0.5 + ch * 0.5);
     if (this.cheekR) this.cheekR.scale.set(1 + ch * 0.6, 1 + ch * 0.5, 0.5 + ch * 0.5);
-    if (this.mouthMesh) { this.mouthMesh.scale.set(1, 1 + ch * 4, 1); this.mouthMesh.position.y = -0.058 - ch * 0.006; }
+    if (this.mouthMesh) { this.mouthMesh.scale.set(1, 1 + ch * 4, 1); this.mouthMesh.position.y = -0.075 - ch * 0.006; }
     // Torso stays mostly upright; leans BACK on the flinch. Head tips down to the donut, or
     // snaps UP toward the looming Auditor when flinching; a soft chew bob on top.
     this.body.rotation.set(0.05 + a * 0.05 - fl * 0.3, 0, 0);
