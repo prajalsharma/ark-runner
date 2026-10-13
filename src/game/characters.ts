@@ -14,7 +14,7 @@ export const CHARACTERS: Character[] = [
   { id: "random_runner", name: "RANDOM RUNNER" },
 ];
 
-const ARCH_ORANGE = 0xff7a1a;
+const ARCH_ORANGE = 0xe8701c; // the reference Pepe's deeper, earthier orange (not neon)
 const RANDOM_PALETTE = [0x33e1ff, 0x3ad17a, 0xff5bd1, 0x9b6bff, 0xffd54a, 0xff6b3b, 0x5bff9b];
 
 const SEL_KEY = "archrunner.character.v1";

@@ -24,7 +24,7 @@ const PALETTE = new Set([0x33e1ff, 0x3ad17a, 0xff5bd1, 0x9b6bff, 0xffd54a, 0xff6
 test("there are exactly two characters and Arch Pepe is the orange default", () => {
   assert.equal(CHARACTERS.length, 2);
   assert.equal(selectedCharacterId(), "arch_pepe");
-  assert.equal(selectedCharacterColor(), 0xff7a1a);
+  assert.equal(selectedCharacterColor(), 0xe8701c);
 });
 
 test("selecting Random Runner persists a palette colour; Arch Pepe restores orange", () => {
@@ -34,7 +34,7 @@ test("selecting Random Runner persists a palette colour; Arch Pepe restores oran
   assert.ok(PALETTE.has(c), `random colour ${c.toString(16)} must be from the palette`);
   assert.equal(selectedCharacterColor(), c, "colour is stable between runs (persisted)");
   selectCharacter("arch_pepe");
-  assert.equal(selectedCharacterColor(), 0xff7a1a);
+  assert.equal(selectedCharacterColor(), 0xe8701c);
   selectCharacter("not_a_character"); // ignored
   assert.equal(selectedCharacterId(), "arch_pepe");
 });

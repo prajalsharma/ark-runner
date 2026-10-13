@@ -34,7 +34,7 @@ import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX
 const COL = {
   bg: 0x04060e, bgBlock: 0x0a0520, ground: 0x03050c, lane: 0x071018,
   grid: 0x16e0ff,            // neon cyan grid lines (the Tron floor)
-  player: 0xff7a1a, playerBlock: 0xb86bff, playerFlip: 0xffd54a,
+  player: 0xe8701c, playerBlock: 0xb86bff, playerFlip: 0xffd54a,
   wall: 0xff2a5f, low: 0xffaa33, high: 0x9b6bff, pit: 0x04040a,
   energy: 0xf7931a, tick: 0x16e0ff, streak: 0x16e0ff, gate: 0x16e0ff, // energy = Bitcoin orange
 };
@@ -509,7 +509,7 @@ export class Renderer {
     (this.scene.background as THREE.Color).copy(this.cBg);
     this.fog.color.copy(this.cBg); this.fog.far = 92;
     this.city.update(st.distance);
-    this.rig.setColorObj(this.cPlayer);
+    this.rig.setColor(0xe8701c); // the cutscene is always the ORANGE Arch Pepe (brand), never a random tint
     const ry = st.runnerY ?? 0;
     if (st.runnerRun === false && this.rig.cutscenePose) {
       // Standing at the bakery, holding/biting the donut — not running in place.
