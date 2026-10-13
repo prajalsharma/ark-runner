@@ -24,7 +24,7 @@ export type Hero = {
   update(st: { x: number; y: number; sliding: boolean; grounded: boolean; phase: number; emissive: number }): void;
   setColor(hex: number): void;
   setColorObj(c: THREE.Color): void;
-  cutscenePose?(armUp: number): void; // standing bakery pose (no run cycle); armUp 0..1 raises the donut hand
+  cutscenePose?(armUp: number, chew?: number, grip?: number, flinch?: number): void; // standing bakery pose (no run cycle)
   rightHandWorld?(out: THREE.Vector3): THREE.Vector3; // world pos of the right hand (cutscene donut rides here)
 };
 import { LANE_WIDTH, START_SPEED, MAX_SPEED, BLOCK_SPEED_MULT, FOV_BASE, FOV_MAX, FOV_BLOCK } from "./constants.ts";
@@ -48,6 +48,8 @@ export type CineState = {
   runnerPhase: number;
   runnerRun?: boolean;   // false = standing bakery pose (hold/bite the donut), not the run cycle
   armUp?: number;        // 0..1 raise the donut hand to the mouth (standing pose only)
+  chewing?: boolean;     // standing pose: cheeks puff + mouth munches (the bite)
+  flinch?: number;       // 0..1 standing-pose recoil from the Auditor
   runnerY?: number;      // vertical (trip dip / small hop)
   runnerPitch?: number;  // forward lean, radians — the stumble/trip pose
   shake?: number;        // camera shake 0..1 (impact of the near-catch)
@@ -511,7 +513,10 @@ export class Renderer {
     const ry = st.runnerY ?? 0;
     if (st.runnerRun === false && this.rig.cutscenePose) {
       // Standing at the bakery, holding/biting the donut — not running in place.
-      this.rig.cutscenePose(st.armUp ?? 1);
+      const armUp = st.armUp ?? 1;
+      const grip = Math.min(1, armUp * 1.4);                        // grips as the donut comes up
+      const chew = st.chewing ? Math.sin(nowMs / 85) * 0.5 + 0.5 : 0; // munch oscillation
+      this.rig.cutscenePose(armUp, chew, grip, st.flinch ?? 0);
       this.rig.group.position.x = st.runnerX;
     } else {
       this.rig.update({ x: st.runnerX, y: ry, sliding: false, grounded: true, phase: st.runnerPhase, emissive: 0.9 });

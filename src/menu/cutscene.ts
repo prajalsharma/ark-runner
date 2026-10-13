@@ -32,6 +32,8 @@ type Key = {
   drone?: Drone; donut?: Donut; bakery?: boolean;
   run?: boolean;   // false = standing bakery pose (hold/bite donut); default true = run cycle
   armUp?: number;  // 0..1 raise the donut hand to the mouth (standing pose)
+  chewing?: boolean; // standing pose: munch the donut (cheeks puff, mouth works)
+  flinch?: number;   // 0..1 recoil from the Auditor (standing pose)
   ry?: number;     // runner vertical (trip dip)
   pitch?: number;  // runner forward lean — the stumble
   shake?: number;  // camera shake (near-catch impact)
@@ -77,28 +79,28 @@ export class Cutscene {
         b: { cam: [2.8, 3.4, 5], look: [0, 1.7, -2.6], bakery: true, drift: 1.5, run: false, armUp: 0.08 } },
       // 1 — THE GRAB: SAT lifts the Satoshi Donut off the counter toward his mouth.
       { dur: 2000, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-sub">last one in the shop</div>`,
-        a: { cam: [1.9, 1.75, -3.1], look: [0, 1.45, -0.3], bakery: true, drift: 0, run: false, armUp: 0.15, donut: held(1.2, 0.3) },
-        b: { cam: [1.5, 1.85, -2.8], look: [0, 1.5, -0.32], bakery: true, drift: 0, run: false, armUp: 0.95, donut: held(1.52, 0.24) } },
-      // 2 — THE BITE: he takes it without paying. Terminal flags the tab PENDING.
+        a: { cam: [1.9, 1.75, -3.1], look: [0, 1.45, -0.3], bakery: true, drift: 0, run: false, armUp: 0.15, donut: held(1.2, 0.2) },
+        b: { cam: [1.5, 1.85, -2.8], look: [0, 1.5, -0.32], bakery: true, drift: 0, run: false, armUp: 0.95, donut: held(1.52, 0.16) } },
+      // 2 — THE BITE: he takes it without paying — cheeks puffing. Terminal flags TAB: PENDING.
       { dur: 1900, cap: `<div class="c3-term">TAB: PENDING — payment not settled</div>`,
         vo: "Eh. It'll confirm.", voRole: "you",
-        a: { cam: [1.3, 1.85, -2.7], look: [0, 1.5, -0.3], bakery: true, drift: 0, run: false, armUp: 1.0, donut: held(1.55, 0.18) },
-        b: { cam: [1.1, 1.9, -2.5], look: [0, 1.55, -0.28], bakery: true, drift: 0, run: false, armUp: 0.85, donut: held(1.52, 0.1) } },
-      // 3 — CAUGHT: the Auditor's eye ignites overhead — it prunes anything unconfirmed.
+        a: { cam: [1.3, 1.85, -2.7], look: [0, 1.5, -0.3], bakery: true, drift: 0, run: false, armUp: 1.0, chewing: true, donut: held(1.55, 0.13) },
+        b: { cam: [1.1, 1.9, -2.5], look: [0, 1.55, -0.28], bakery: true, drift: 0, run: false, armUp: 0.9, chewing: true, donut: held(1.5, 0.08) } },
+      // 3 — CAUGHT: the Auditor's eye ignites overhead — it prunes anything unconfirmed; SAT recoils.
       { dur: 1800, cap: `<div class="c3-siren"></div><div class="c3-aud"><b>AUDITOR:</b> Unsettled transaction detected.</div>`,
         vo: "Unsettled transaction detected.", voRole: "auditor",
-        a: { cam: [1.2, 2.0, -2.8], look: [0, 2.6, 1.4], drone: drone(0, 10, 4.5, 1.0), bakery: true, drift: 0, run: false, armUp: 0.5 },
-        b: { cam: [0.9, 2.6, -2.4], look: [0, 4.0, 2.4], drone: drone(0, 5.6, 3.8, 2.7), bakery: true, drift: 0, run: false, armUp: 0.2 } },
-      // 4 — THE WORD: the Auditor bears down — YOU are the unconfirmed asset now.
+        a: { cam: [1.2, 2.0, -2.8], look: [0, 2.6, 1.4], drone: drone(0, 10, 4.5, 1.0), bakery: true, drift: 0, run: false, armUp: 0.5, flinch: 0.9 },
+        b: { cam: [0.9, 2.6, -2.4], look: [0, 4.0, 2.4], drone: drone(0, 5.6, 3.8, 2.7), bakery: true, drift: 0, run: false, armUp: 0.2, flinch: 0.55 } },
+      // 4 — THE WORD: the Auditor bears down — YOU are the unconfirmed asset now (still rattled).
       { dur: 2000, cap: `<div class="c3-aud"><b>AUDITOR:</b> You ate an asset that never cleared. Prepare for pruning.</div>`,
         vo: "You ate an asset that never cleared. Prepare for pruning.", voRole: "auditor",
-        a: { cam: [-1.9, 2.4, -1.6], look: [0, 3.8, 2.2], drone: drone(0, 5.3, 2.6, 2.9), bakery: true, drift: 0, run: false, armUp: 0.1 },
-        b: { cam: [-1.3, 2.3, -1.2], look: [0, 3.4, 1.8], drone: drone(0.4, 4.7, 1.8, 3.0), bakery: true, drift: 0, run: false, armUp: 0.08 } },
-      // 5 — THE REACTION: SAT, cheeks full, unbothered.
+        a: { cam: [-1.9, 2.4, -1.6], look: [0, 3.8, 2.2], drone: drone(0, 5.3, 2.6, 2.9), bakery: true, drift: 0, run: false, armUp: 0.1, flinch: 0.55 },
+        b: { cam: [-1.3, 2.3, -1.2], look: [0, 3.4, 1.8], drone: drone(0.4, 4.7, 1.8, 3.0), bakery: true, drift: 0, run: false, armUp: 0.08, flinch: 0.4 } },
+      // 5 — THE REACTION: SAT, cheeks still full, recovering his cool.
       { dur: 1500, cap: `<div class="c3-you"><b>YOU:</b> That seems negotiable.</div>`,
         vo: "That seems negotiable.", voRole: "you",
-        a: { cam: [1.0, 1.8, -2.6], look: [0, 1.5, -0.3], drone: drone(0.2, 4.6, 2.0, 3.0), bakery: true, drift: 0, run: false, armUp: 0.12 },
-        b: { cam: [0.9, 1.82, -2.4], look: [0, 1.5, -0.3], drone: drone(-0.2, 4.5, 1.8, 3.0), bakery: true, drift: 0, run: false, armUp: 0.1 } },
+        a: { cam: [1.0, 1.8, -2.6], look: [0, 1.5, -0.3], drone: drone(0.2, 4.6, 2.0, 3.0), bakery: true, drift: 0, run: false, armUp: 0.12, chewing: true, flinch: 0.14 },
+        b: { cam: [0.9, 1.82, -2.4], look: [0, 1.5, -0.3], drone: drone(-0.2, 4.5, 1.8, 3.0), bakery: true, drift: 0, run: false, armUp: 0.1, chewing: true, flinch: 0.03 } },
       // 6 — BOLT: CUT behind; SAT flees down the street, the Auditor swoops over (voiced).
       { dur: 1700, cap: `<div class="c3-big" style="font-size:40px">RUN!</div>`,
         vo: "I'll confirm it myself.", voRole: "you",
@@ -164,6 +166,8 @@ export class Cutscene {
       runnerPhase: this.distance * 1.4,
       runnerRun: a.run ?? true,
       armUp: lerp(a.armUp ?? 1, b.armUp ?? 1, k),
+      chewing: !!(a.chewing || b.chewing),
+      flinch: lerp(a.flinch ?? 0, b.flinch ?? 0, k),
       runnerY: lerp(a.ry ?? 0, b.ry ?? 0, k),
       runnerPitch: lerp(a.pitch ?? 0, b.pitch ?? 0, k),
       shake: lerp(a.shake ?? 0, b.shake ?? 0, k),
