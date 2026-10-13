@@ -68,45 +68,31 @@ export class Cutscene {
    *  SAT faces −z, so the front (bite/reveal) cameras sit on the −z side looking back. */
   private quickShots(): Shot[] {
     const drone = (x: number, y: number, z: number, eye: number): Drone => ({ x, y, z, eye });
-    // The donut is HELD in the right hand (−z front). `held(y, s)` places it at a height
-    // with a given size; as the arm raises (armUp 0→1) the donut rises hand→mouth and the
-    // scale shrinks (chomp). Prop base torus ~1.6u, so scale ~0.2 → a ~0.3u handheld bite.
-    const held = (y: number, s: number): Donut => ({ x: 0.2, y, z: -0.34, scale: s });
     return [
-      // 0 — ESTABLISH: open ON the frog at the neon bakery (a smooth push-in), not an empty
-      // wide shot. Front 3/4 so his face reads immediately.
-      { dur: 2100, cap: `<div class="c3-big">THE MEMPOOL</div><div class="c3-sub">3 AM · nothing here is confirmed</div>`,
-        a: { cam: [3.9, 2.7, -5.0], look: [0, 1.45, -0.5], bakery: true, drift: 1.2, run: false, armUp: 0.05 },
-        b: { cam: [2.3, 2.0, -3.6], look: [0, 1.5, -0.35], bakery: true, drift: 1.2, run: false, armUp: 0.08 } },
-      // 1 — THE GRAB: SAT lifts the Satoshi Donut off the counter toward his mouth.
-      { dur: 2000, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-sub">last one in the shop</div>`,
-        a: { cam: [1.9, 1.75, -3.1], look: [0, 1.45, -0.3], bakery: true, drift: 0, run: false, armUp: 0.15, donut: held(1.2, 0.2) },
-        b: { cam: [1.5, 1.85, -2.8], look: [0, 1.5, -0.32], bakery: true, drift: 0, run: false, armUp: 0.95, donut: held(1.52, 0.16) } },
-      // 2 — THE BITE: he takes it without paying — cheeks puffing. Terminal flags TAB: PENDING.
-      { dur: 1900, cap: `<div class="c3-term">TAB: PENDING — payment not settled</div>`,
-        vo: "Eh. It'll confirm.", voRole: "you",
-        a: { cam: [1.3, 1.85, -2.7], look: [0, 1.5, -0.3], bakery: true, drift: 0, run: false, armUp: 1.0, chewing: true, donut: held(1.55, 0.13) },
-        b: { cam: [1.1, 1.9, -2.5], look: [0, 1.55, -0.28], bakery: true, drift: 0, run: false, armUp: 0.9, chewing: true, donut: held(1.5, 0.08) } },
-      // 3 — CAUGHT: the Auditor's eye ignites overhead — it prunes anything unconfirmed; SAT recoils.
-      { dur: 1800, cap: `<div class="c3-siren"></div><div class="c3-aud"><b>AUDITOR:</b> Unsettled transaction detected.</div>`,
+      // 0 — ESTABLISH: the Arch Pepe already RUNNING toward us through the neon Mempool. Front
+      // 3/4 (camera ahead, −z) so his orange face reads immediately, pushing in as he closes.
+      { dur: 2200, cap: `<div class="c3-big">THE MEMPOOL</div><div class="c3-sub">3 AM · nothing here has confirmed</div>`,
+        a: { cam: [3.4, 2.4, -5.4], look: [0, 1.35, -0.6], drift: 10, run: true },
+        b: { cam: [2.0, 1.8, -3.6], look: [0, 1.35, -0.3], drift: 12, run: true } },
+      // 1 — THE AUDITOR: the enforcer drone drops in from above and behind, eye igniting.
+      { dur: 2000, cap: `<div class="c3-siren"></div><div class="c3-aud"><b>AUDITOR:</b> Unsettled transaction detected.</div>`,
         vo: "Unsettled transaction detected.", voRole: "auditor",
-        a: { cam: [1.2, 2.0, -2.8], look: [0, 2.6, 1.4], drone: drone(0, 10, 4.5, 1.0), bakery: true, drift: 0, run: false, armUp: 0.5, flinch: 0.9 },
-        b: { cam: [0.9, 2.6, -2.4], look: [0, 4.0, 2.4], drone: drone(0, 5.6, 3.8, 2.7), bakery: true, drift: 0, run: false, armUp: 0.2, flinch: 0.55 } },
-      // 4 — THE WORD: the Auditor bears down — YOU are the unconfirmed asset now (still rattled).
-      { dur: 2000, cap: `<div class="c3-aud"><b>AUDITOR:</b> You ate an asset that never cleared. Prepare for pruning.</div>`,
-        vo: "You ate an asset that never cleared. Prepare for pruning.", voRole: "auditor",
-        a: { cam: [-1.9, 2.4, -1.6], look: [0, 3.8, 2.2], drone: drone(0, 5.3, 2.6, 2.9), bakery: true, drift: 0, run: false, armUp: 0.1, flinch: 0.55 },
-        b: { cam: [-1.3, 2.3, -1.2], look: [0, 3.4, 1.8], drone: drone(0.4, 4.7, 1.8, 3.0), bakery: true, drift: 0, run: false, armUp: 0.08, flinch: 0.4 } },
-      // 5 — THE REACTION: SAT, cheeks still full, recovering his cool.
-      { dur: 1500, cap: `<div class="c3-you"><b>YOU:</b> That seems negotiable.</div>`,
-        vo: "That seems negotiable.", voRole: "you",
-        a: { cam: [1.0, 1.8, -2.6], look: [0, 1.5, -0.3], drone: drone(0.2, 4.6, 2.0, 3.0), bakery: true, drift: 0, run: false, armUp: 0.12, chewing: true, flinch: 0.14 },
-        b: { cam: [0.9, 1.82, -2.4], look: [0, 1.5, -0.3], drone: drone(-0.2, 4.5, 1.8, 3.0), bakery: true, drift: 0, run: false, armUp: 0.1, chewing: true, flinch: 0.03 } },
-      // 6 — BOLT: CUT behind; SAT flees down the street, the Auditor swoops over (voiced).
-      { dur: 1700, cap: `<div class="c3-big" style="font-size:40px">RUN!</div>`,
+        a: { cam: [2.2, 2.2, -3.0], look: [0, 2.2, 1.4], drone: drone(0, 11, 5.5, 1.0), drift: 13, run: true },
+        b: { cam: [1.4, 2.6, -1.0], look: [0, 3.4, 2.6], drone: drone(0, 6.2, 4.4, 2.7), drift: 14, run: true } },
+      // 2 — THE WORD: CUT behind — the Pepe flees down the track, the Auditor looming over him.
+      { dur: 2000, cap: `<div class="c3-aud"><b>AUDITOR:</b> You never cleared. Prepare for pruning.</div>`,
+        vo: "You never cleared. Prepare for pruning.", voRole: "auditor",
+        a: { cam: [0, 2.4, 4.6], look: [0, 1.4, -4], drone: drone(0, 5.6, 3.0, 2.9), drift: 16, run: true },
+        b: { cam: [0, 2.8, 5.6], look: [0, 1.4, -5], drone: drone(0.3, 5.2, 2.0, 3.0), drift: 18, run: true } },
+      // 3 — THE DEFIANCE: back to a front 3/4 — the Pepe, dead set, barrelling on (voiced).
+      { dur: 1600, cap: `<div class="c3-you"><b>YOU:</b> I'll confirm it myself.</div>`,
         vo: "I'll confirm it myself.", voRole: "you",
-        a: { cam: [0, 2.0, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 8, fov: 56, run: true },
-        b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 26, fov: 60, run: true } },
+        a: { cam: [2.0, 1.7, -3.2], look: [0, 1.35, -0.4], drone: drone(-0.4, 5.6, 2.4, 3.0), drift: 18, run: true },
+        b: { cam: [1.5, 1.6, -2.7], look: [0, 1.35, -0.3], drone: drone(0.4, 5.8, 2.8, 3.0), drift: 20, run: true } },
+      // 4 — BOLT: swing behind and open up the speed, the Auditor swooping over (voiced).
+      { dur: 1600, cap: `<div class="c3-big" style="font-size:40px">OUTRUN THE PRUNE</div>`,
+        a: { cam: [0, 2.2, 6], look: [0, 1.4, -3], drone: drone(0, 7, 7.5, 2.9), drift: 24, fov: 56, run: true },
+        b: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 30, fov: 60, run: true } },
       // 7 — hand-off: settle to the exact gameplay camera, GO.
       { dur: 1300, cap: ``, hint: true,
         a: { cam: [0, 4.4, 8.4], look: [0, 1.4, -9], drone: drone(0, 5.6, -2, 2.6), drift: 28, fov: 60, run: true },

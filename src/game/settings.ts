@@ -27,15 +27,18 @@ export function setReducedMotion(on: boolean): void { write(MOTION_KEY, on ? "1"
 export function quality(): Quality { return read(QUALITY_KEY) === "low" ? "low" : "high"; }
 export function setQuality(q: Quality): void { write(QUALITY_KEY, q); }
 
-/** Hero model source (presentation only). "procedural" = the authored jointed RunnerRig
- *  (default, verified, responsive); "glb" = the rigged-GLB Path-B hero (HeroGLB), which still
- *  falls back to procedural if the asset fails to load. Overridable via ?hero=glb for testing. */
-export type HeroModel = "procedural" | "glb";
+/** Hero model source (presentation only). "pepe" = the ARCH PEPE textured GLB (HeroPepeGLB —
+ *  the default now); "procedural" = the authored jointed RunnerRig (the guaranteed fallback,
+ *  also used if the GLB fails to load); "glb" = the older rigged Path-B courier (HeroGLB).
+ *  Every GLB hero falls back to procedural on load failure. Overridable via ?hero=… for testing. */
+export type HeroModel = "pepe" | "procedural" | "glb";
 export function heroModel(): HeroModel {
   try {
     const q = new URLSearchParams(location.search).get("hero");
-    if (q === "glb" || q === "procedural") return q;
+    if (q === "glb" || q === "procedural" || q === "pepe") return q;
   } catch { /* no location (SSR/tests) */ }
-  return read(HERO_KEY) === "glb" ? "glb" : "procedural";
+  const stored = read(HERO_KEY);
+  if (stored === "procedural" || stored === "glb") return stored;
+  return "pepe"; // the Arch Pepe GLB is the default hero
 }
 export function setHeroModel(m: HeroModel): void { write(HERO_KEY, m); }

@@ -373,7 +373,9 @@ export class Renderer {
     this.rig = new RunnerRig(this.playerColor);
     this.rig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     this.scene.add(this.rig.group);
-    if (heroModel() === "glb") void this.swapToGLBHero();
+    const hero = heroModel();
+    if (hero === "pepe") void this.swapToPepeHero();
+    else if (hero === "glb") void this.swapToGLBHero();
 
     // Authored hazard props (per-type silhouette + telegraph), pooled.
     this.obstacles = new ObstacleKit(this.scene);
@@ -466,6 +468,20 @@ export class Renderer {
     try {
       const { HeroGLB } = await import("./hero-glb.ts");
       const glb = new HeroGLB(this.playerColor);
+      glb.setColorObj(this.cPlayer);
+      this.scene.remove(this.rig.group);
+      this.rig = glb;
+      glb.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
+      this.scene.add(glb.group);
+    } catch { /* keep the procedural rig */ }
+  }
+
+  /** Default: swap the procedural rig for the ARCH PEPE textured GLB (code-split; shows the
+   *  procedural rig until the GLB loads, and falls back to it forever on failure). */
+  private async swapToPepeHero(): Promise<void> {
+    try {
+      const { HeroPepeGLB } = await import("./hero-pepe.ts");
+      const glb = new HeroPepeGLB(this.playerColor);
       glb.setColorObj(this.cPlayer);
       this.scene.remove(this.rig.group);
       this.rig = glb;
