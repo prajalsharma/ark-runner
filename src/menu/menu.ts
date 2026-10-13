@@ -29,6 +29,7 @@ import type { Mode } from "../game/daily.ts";
 export class Menu {
   private attract = new Attract();
   private game: Game | null = null;
+  private prewarmTimer = 0; // id of the deferred "build the run behind the cutscene" timeout
   private activeProvider: WalletProvider | null = null;
   private session: WalletSession | null = null;
   private profile: PlayerProfile | null = null;
@@ -291,43 +292,34 @@ export class Menu {
     this.game?.stop(); this.game = null; // stop() clears the old result card + disposes it
     this.attract.start();
     this.overlay.className = ""; this.overlay.innerHTML = "";
-    const go = (): void => this.handoffToGame(mode);
+    const veil = document.getElementById("fadeveil"); if (veil) veil.style.opacity = "0"; // never open on black
+    // PRE-WARM the game behind the cutscene so the hand-off is INSTANT (no build-at-switch lag,
+    // no 2s black). Deferred a beat so building the renderer doesn't hitch the cutscene's open.
+    window.clearTimeout(this.prewarmTimer);
+    this.prewarmTimer = window.setTimeout(() => this.prewarmGame(mode), 1100);
+    const go = (): void => this.revealGame(mode);
     new Cutscene(this.attract, this.overlay, go, go, "quick").play();
   }
 
-  /** Smooth the cutscene→game cut: fade through black while the new game context spins up
-   *  and the scrolling world resets, then reveal — no hard swap / world-snap flash. */
-  private handoffToGame(mode: Mode): void {
-    const fade = this.fadeVeil();
-    fade.style.opacity = "1";
-    window.setTimeout(() => {
-      // Reveal exactly when the game has painted its first frame (onReady) — never a blank
-      // frame. A safety timeout covers a stalled first frame.
-      let revealed = false;
-      const reveal = (): void => { if (revealed) return; revealed = true; fade.style.opacity = "0"; };
-      this.launch(mode, reveal);
-      window.setTimeout(reveal, 1800);
-    }, 280);
-  }
-
-  private fadeVeil(): HTMLElement {
-    let el = document.getElementById("fadeveil");
-    if (!el) { el = document.createElement("div"); el.id = "fadeveil"; (document.getElementById("app") ?? document.body).appendChild(el); }
-    return el;
-  }
-
-  private launch(mode: Mode, onReady?: () => void): void {
-    this.attract.stop();
-    this.overlay.className = "";
-    this.overlay.innerHTML = "";
-    this.game?.stop();
-    // A disposed renderer calls forceContextLoss(), after which the canvas can NEVER get a
-    // fresh WebGL context again. So hand each new run a brand-new canvas (the old one is
-    // removed + GC'd, freeing its context). This fixes the second-run "precision" crash /
-    // black screen when starting Free Run then Daily Block (or restarting via the menu).
+  /** Build the run hidden behind the cutscene (its first frame paints to warm shaders, but the
+   *  sim/audio/controls stay frozen until begin()). A brand-new canvas each run — a disposed
+   *  renderer forceContextLoss()es its canvas, so it can never get a fresh WebGL context again. */
+  private prewarmGame(mode: Mode): void {
+    if (this.game) return;
     this.canvas = this.freshGameCanvas();
     const comp = mode === "daily" && this.session ? { address: this.session.address } : null;
-    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, onMenu: () => this.returnToMenu(), onReplay: () => this.start(mode), onReady });
+    this.game = new Game(this.canvas, this.hud, this.overlay, { mode, comp, frozen: true, onMenu: () => this.returnToMenu(), onReplay: () => this.start(mode) });
+  }
+
+  /** Cutscene → game: an INSTANT swap. The pre-warmed game has already painted its first frame
+   *  behind the attract canvas, so hiding the attract reveals it immediately; begin() starts the
+   *  run. If the cutscene was skipped before the pre-warm fired, build it now (one-off hitch). */
+  private revealGame(mode: Mode): void {
+    window.clearTimeout(this.prewarmTimer);
+    if (!this.game) this.prewarmGame(mode);
+    this.attract.stop();                 // hide the cutscene backdrop → the game frame shows
+    this.overlay.className = ""; this.overlay.innerHTML = ""; // clear the cutscene captions
+    this.game?.begin();                  // start the run — already painted, so it's instant
   }
 
   /** Swap the #scene canvas for a fresh one in the same DOM slot (same id/class/styles). */

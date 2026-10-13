@@ -17,7 +17,7 @@ import { recordRunStats } from "./achievements.ts";
 
 /** For Daily Block, the verified wallet identity the competitive run is recorded against. */
 export type CompetitionCtx = { address: string };
-export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void; onReplay?: () => void; onReady?: () => void };
+export type GameOpts = { mode?: Mode; seed?: number; comp?: CompetitionCtx | null; onEnd?: (sim: RunSim) => void; onMenu?: () => void; onReplay?: () => void; onReady?: () => void; frozen?: boolean };
 
 type Snapshot = { collected: number; nearMisses: number; perfects: number; blockRuns: number; flips: number; flipActive: boolean; grounded: boolean; flowMult: number; alive: boolean };
 
@@ -45,6 +45,7 @@ export class Game {
   private resultShown = false;
   private deathAt = 0;
   private paused = false;
+  private started = true; // false while pre-warmed behind the cutscene (frozen); begin() starts the run
   private debug = false;
   private prev: Snapshot;
   private auditorAt = 260;   // next distance (world units) to drop an Auditor quip
@@ -69,11 +70,11 @@ export class Game {
     this.prev = this.snapshot();
     this.renderer = new Renderer(canvas, selectedCharacterColor());
     this.hud = new HUD(hudEl, overlayEl);
-    this.audio.resume(); // we're inside the run-button gesture → allowed to start audio
-    this.audio.startMusic();
+    this.started = !opts.frozen; // frozen: paint the start frame to warm shaders, but don't run yet
+    if (this.started) this.startAudio();
 
     this.detach = attachInput((a) => {
-      if (!this.sim.alive || this.paused) return;
+      if (!this.started || !this.sim.alive || this.paused) return;
       if (a === "jump" && this.sim.grounded) { this.audio.play("jump"); this.renderer.burst("jump"); this.renderer.addShake(0.05); }
       else if (a === "slide" && this.sim.grounded) { this.audio.play("slide"); this.renderer.burst("slide"); }
       this.sim.input(a);
@@ -81,7 +82,10 @@ export class Game {
 
     this.sysbar = this.buildSysbar();
     this.detachKeys = this.attachSysKeys();
-    this.maybeCoach();
+    // While frozen (pre-warmed behind the cutscene) keep the on-screen controls + coach hidden
+    // so they don't leak over the cutscene; begin() reveals them with the run.
+    if (this.started) this.maybeCoach();
+    else this.sysbar.style.display = "none";
 
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
@@ -104,10 +108,32 @@ export class Game {
     return { collected: s.collected, nearMisses: s.nearMisses, perfects: s.perfects, blockRuns: s.blockRuns, flips: s.flips, flipActive: s.flipActive, grounded: s.grounded, flowMult: s.flowMult, alive: s.alive };
   }
 
+  /** Start audio (only inside a user gesture). */
+  private startAudio(): void { this.audio.resume(); this.audio.startMusic(); }
+
+  /** Unfreeze a pre-warmed game and start the actual run (called at the cutscene→game reveal).
+   *  The first frame is already painted, so this is an instant, hitch-free hand-off. */
+  begin(): void {
+    if (this.started) return;
+    this.started = true;
+    this.lastT = 0; this.acc = 0; // fresh timing — no accumulated dt from the frozen period
+    this.sysbar.style.display = ""; // reveal the on-screen controls now the run is live
+    this.maybeCoach();
+    this.startAudio();
+    this.raf = requestAnimationFrame(this.loop); // frozen phase stopped the loop — resume it
+  }
+
   private loop(now: number): void {
     if (!this.lastT) this.lastT = now;
     let frame = (now - this.lastT) / 1000;
     this.lastT = now;
+    // Frozen (pre-warm) phase: paint the start frame ONCE to compile shaders + warm the context,
+    // then idle (no re-render, so we don't double-load the GPU behind the cutscene). begin()
+    // resumes the loop. The sim/audio/input stay frozen until then.
+    if (!this.started) {
+      if (!this.firstFrame) { this.renderer.render(this.sim, now); this.firstFrame = true; this.onReady?.(); }
+      return; // stop the loop; begin() restarts it
+    }
     if (this.paused) { this.raf = requestAnimationFrame(this.loop); return; }
     if (frame > 0.1) frame = 0.1; // clamp after a tab switch
     // Adaptive performance: ~1.5s of sustained slow frames → drop effects once.

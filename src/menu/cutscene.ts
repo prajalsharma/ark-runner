@@ -73,10 +73,11 @@ export class Cutscene {
     // scale shrinks (chomp). Prop base torus ~1.6u, so scale ~0.2 → a ~0.3u handheld bite.
     const held = (y: number, s: number): Donut => ({ x: 0.2, y, z: -0.34, scale: s });
     return [
-      // 0 — ESTABLISH: a wide push through the neon Mempool. SAT stands outside the bakery.
+      // 0 — ESTABLISH: open ON the frog at the neon bakery (a smooth push-in), not an empty
+      // wide shot. Front 3/4 so his face reads immediately.
       { dur: 2100, cap: `<div class="c3-big">THE MEMPOOL</div><div class="c3-sub">3 AM · nothing here is confirmed</div>`,
-        a: { cam: [7, 10, 15], look: [0, 2.6, -6], bakery: true, drift: 1.5, run: false, armUp: 0.05 },
-        b: { cam: [2.8, 3.4, 5], look: [0, 1.7, -2.6], bakery: true, drift: 1.5, run: false, armUp: 0.08 } },
+        a: { cam: [3.9, 2.7, -5.0], look: [0, 1.45, -0.5], bakery: true, drift: 1.2, run: false, armUp: 0.05 },
+        b: { cam: [2.3, 2.0, -3.6], look: [0, 1.5, -0.35], bakery: true, drift: 1.2, run: false, armUp: 0.08 } },
       // 1 — THE GRAB: SAT lifts the Satoshi Donut off the counter toward his mouth.
       { dur: 2000, cap: `<div class="c3-line">THE SATOSHI DONUT</div><div class="c3-sub">last one in the shop</div>`,
         a: { cam: [1.9, 1.75, -3.1], look: [0, 1.45, -0.3], bakery: true, drift: 0, run: false, armUp: 0.15, donut: held(1.2, 0.2) },
@@ -124,6 +125,11 @@ export class Cutscene {
   play(): void {
     this.elapsed = 0; this.lastNow = 0; this.distance = 0; this.lastShot = -1;
     this.loop = this.loop.bind(this);
+    // Paint the first frame + caption synchronously so the cutscene never opens on a blank or
+    // stale canvas (no black flash before the first requestAnimationFrame fires).
+    const sh0 = this.shots()[0]!;
+    this.attract.renderCine(performance.now(), this.frame(sh0, 0));
+    this.renderCaption(sh0); this.lastShot = 0;
     this.raf = requestAnimationFrame(this.loop);
   }
 
