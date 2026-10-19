@@ -38,6 +38,7 @@ export type HeroState = { x: number; y: number; sliding: boolean; grounded: bool
 
 const HERO_URL = new URL("../assets/arch-pepe.glb", import.meta.url).href;
 const TARGET_HEIGHT = 1.9; // match the procedural rig's height so the camera framing is unchanged
+const HERO_GLOW = new THREE.Color(0xff7a1a); // fixed brand-orange "charge" glow (never the player tint)
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
@@ -272,9 +273,11 @@ export class HeroPepeGLB {
   setColorObj(c: THREE.Color): void {
     this.color.copy(c);
     if (!this.isGLB) { this.fallback?.setColorObj(c); return; }
-    // Keep the baked textures; the player/Block/Flip colour rides as a subtle EMISSIVE wash so
-    // the hero still "charges" with flow without repainting the art.
-    for (const m of this.mats) m.emissive.copy(c);
+    // The Arch Pepe is a FIXED painted character — it must stay the orange Pepe no matter which
+    // runner colour is picked (a green pick must never turn the whole hoodie green). So the flow
+    // "charge" glows a constant warm BRAND ORANGE, never the player/Block/Flip tint, and only
+    // faintly (see update()), so it reads as energy on the art rather than repainting it.
+    for (const m of this.mats) m.emissive.copy(HERO_GLOW);
   }
 
   /** Drive the pose. Mirrors RunnerRig.update's contract. */
@@ -327,8 +330,9 @@ export class HeroPepeGLB {
     const sxz = 1 + this.squash * 0.5 - this.stretch * 0.22;
     this.inner.scale.set(sxz, sy, sxz);
 
-    // Flow/Block/Flip glow via emissive intensity (colour set by setColorObj).
-    const ei = 0.04 + st.emissive * 0.16;
+    // Flow charge via emissive INTENSITY only (colour is the fixed brand orange from setColorObj).
+    // Kept faint and capped so the painted Pepe always reads as the orange Pepe, never a glow blob.
+    const ei = 0.02 + Math.min(0.16, st.emissive * 0.05);
     for (const m of this.mats) m.emissiveIntensity = ei;
   }
 

@@ -7,12 +7,14 @@
  */
 import { Competition } from "./competition.ts";
 import { validateSubmission } from "./validate.ts";
-import { distribute } from "../economy/distribution.ts";
+import { distributeWeighted, type RankedStake } from "../economy/distribution.ts";
 import type { GameSettlementProvider, Payout, Sats, SettleResult } from "../chain/types.ts";
 import type { RunSubmission, ValidationResult } from "../shared/contracts.ts";
 
 export class CompetitionEngine {
   readonly comp: Competition;
+  /** Each player's committed stake for the day (their risk) — drives the stake-weighted payout. */
+  private readonly stakes = new Map<string, Sats>();
 
   constructor(
     id: string,
@@ -30,10 +32,15 @@ export class CompetitionEngine {
     this.comp.open();
   }
 
-  /** Pay the entry fee into the pot (must be before submitting a run). */
+  /** Commit a player's chosen stake into the pot (must be before submitting a run). The amount is
+   *  the player's risk for the day: it funds the shared pool and weights their payout. */
   async enter(player: string, amount: Sats): Promise<void> {
     await this.provider.collectEntry(this.comp.id, player, amount);
+    this.stakes.set(player, (this.stakes.get(player) ?? 0n) + amount); // sum if a player tops up
   }
+
+  /** A player's committed stake for this competition (0 if they never entered). */
+  stakeOf(player: string): Sats { return this.stakes.get(player) ?? 0n; }
 
   /** Validate a run against the competition's own seed, then record it if clean. */
   submit(player: string, sub: RunSubmission): ValidationResult {
@@ -47,14 +54,16 @@ export class CompetitionEngine {
 
   leaderboard(): { player: string; score: number }[] { return this.comp.leaderboard(); }
 
-  /** Close, distribute the prize reserve to the ranked leaderboard, and settle. */
+  /** Close, distribute the prize reserve to the ranked leaderboard, and settle. The pool is split
+   *  by rankWeight × each winner's stake (dynamic risk): skill gates who gets paid, stake scales
+   *  the slice, and entrants outside the paid ranks forfeit their stake to the pool. */
   async finalizeAndSettle(structureBps: number[]): Promise<SettleResult> {
     this.comp.lock();
     this.comp.transition("VALIDATING");
     this.comp.transition("FINALIZED");
     const { prizeReserve } = await this.provider.pool(this.comp.id);
-    const winners = this.comp.leaderboard().map((e) => e.player);
-    const payouts: Payout[] = winners.length ? distribute(prizeReserve, winners, structureBps) : [];
+    const ranked: RankedStake[] = this.comp.leaderboard().map((e) => ({ player: e.player, stake: this.stakeOf(e.player) }));
+    const payouts: Payout[] = ranked.length ? distributeWeighted(prizeReserve, ranked, structureBps) : [];
     this.comp.transition("SETTLING");
     try {
       const res = await this.provider.settle(this.comp.id, payouts);

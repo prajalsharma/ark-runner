@@ -8,7 +8,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { MockSettlementProvider } from "../src/chain/mock.ts";
 import { ArchSettlementProvider, makeSettlementProvider } from "../src/chain/arch.ts";
-import { splitExact, distribute, STRUCTURE_A, assertSolvent } from "../src/economy/distribution.ts";
+import { splitExact, distribute, distributeWeighted, splitByWeights, stakeForTier, RISK_TIERS, STRUCTURE_A, assertSolvent } from "../src/economy/distribution.ts";
 
 test("splitExact sums to the pool exactly, remainder to 1st", () => {
   assert.deepEqual(splitExact(100n, STRUCTURE_A), [70n, 20n, 10n]);
@@ -78,4 +78,70 @@ test("the default provider is Mock; Arch is honest (reads real, never settles wi
   assert.equal(arch.hasSigner(), false);
   await assert.rejects(arch.collectEntry("1", "", 10n), /wallet/i);
   await assert.rejects(arch.reclaim("1", ""), /wallet/i);
+});
+
+// ---- Dynamic risk: stake-weighted, skill-gated distribution ----
+
+test("splitByWeights sums to the pool exactly, remainder to the top", () => {
+  assert.deepEqual(splitByWeights(100n, [3n, 1n]), [75n, 25n]);
+  const s = splitByWeights(100n, [1n, 1n, 1n]); // 33/33/33 → remainder to index 0
+  assert.deepEqual(s, [34n, 33n, 33n]);
+  assert.equal(s.reduce((a, b) => a + b, 0n), 100n);
+  assert.deepEqual(splitByWeights(50n, [0n, 0n]), [25n, 25n]); // all-zero → even split
+  assert.deepEqual(splitByWeights(0n, [5n, 1n]), [0n, 0n]);
+});
+
+test("distributeWeighted pays the whole pool exactly (no sats invented)", () => {
+  const ranked = [
+    { player: "a", stake: 10_000n },
+    { player: "b", stake: 1_000n },
+    { player: "c", stake: 5_000n },
+  ];
+  const payouts = distributeWeighted(100_000n, ranked, STRUCTURE_A);
+  assert.equal(payouts.reduce((s, p) => s + p.amount, 0n), 100_000n);
+  assert.equal(payouts.length, 3);
+});
+
+test("more stake at the SAME rank earns a bigger slice", () => {
+  // two identical leaderboards, only the winner's stake differs
+  const small = distributeWeighted(100_000n, [{ player: "w", stake: 1_000n }, { player: "x", stake: 5_000n }, { player: "y", stake: 5_000n }], STRUCTURE_A);
+  const big = distributeWeighted(100_000n, [{ player: "w", stake: 20_000n }, { player: "x", stake: 5_000n }, { player: "y", stake: 5_000n }], STRUCTURE_A);
+  const wSmall = small.find((p) => p.player === "w")!.amount;
+  const wBig = big.find((p) => p.player === "w")!.amount;
+  assert.ok(wBig > wSmall, `bigger stake should win more: ${wBig} !> ${wSmall}`);
+});
+
+test("better rank earns more than a lower rank at equal stake", () => {
+  const payouts = distributeWeighted(90_000n, [
+    { player: "first", stake: 5_000n },
+    { player: "second", stake: 5_000n },
+    { player: "third", stake: 5_000n },
+  ], STRUCTURE_A);
+  const [a, b, c] = ["first", "second", "third"].map((id) => payouts.find((p) => p.player === id)!.amount);
+  assert.ok(a > b && b > c, `rank must dominate at equal stake: ${a}/${b}/${c}`);
+});
+
+test("a big staker OUTSIDE the paid ranks forfeits their stake (gets nothing)", () => {
+  // 3 paid ranks (STRUCTURE_A); the whale ranks 4th → no payout, its stake stays in the pool
+  const ranked = [
+    { player: "p1", stake: 2_000n },
+    { player: "p2", stake: 2_000n },
+    { player: "p3", stake: 2_000n },
+    { player: "whale", stake: 50_000n },
+  ];
+  const payouts = distributeWeighted(56_000n, ranked, STRUCTURE_A);
+  assert.equal(payouts.find((p) => p.player === "whale"), undefined, "whale outside top-3 is not paid");
+  assert.equal(payouts.reduce((s, p) => s + p.amount, 0n), 56_000n, "whole pool still distributed");
+});
+
+test("fewer entrants than prize slots still pays the whole pool", () => {
+  const payouts = distributeWeighted(10_000n, [{ player: "solo", stake: 3_000n }], STRUCTURE_A);
+  assert.equal(payouts.length, 1);
+  assert.equal(payouts[0]!.amount, 10_000n);
+});
+
+test("risk tiers are ordered and resolvable", () => {
+  assert.ok(stakeForTier("low") < stakeForTier("med"));
+  assert.ok(stakeForTier("med") < stakeForTier("high"));
+  assert.equal(RISK_TIERS.length, 3);
 });

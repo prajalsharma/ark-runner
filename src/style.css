@@ -380,6 +380,21 @@ body {
 
 /* Daily Block briefing */
 .dbhead { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #f7931a; margin: 2px 0; }
+
+/* Dynamic-risk stake picker */
+.risklabel { font-size: 10px; letter-spacing: 2px; color: #8a90a6; margin: 14px 0 8px; }
+.riskrow { display: flex; gap: 8px; }
+@media (max-width: 420px) { .riskrow { flex-direction: column; } }
+.riskpick {
+  flex: 1; cursor: pointer; font: inherit; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 8px; border-radius: 12px; color: #e9ecf5;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+}
+.riskpick.active { border-color: #f7931a; box-shadow: 0 0 16px rgba(247,147,26,0.35); background: rgba(247,147,26,0.09); }
+.rtname { font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+.rtstake { font-size: 13px; font-weight: 800; color: #ffd54a; }
+.rtsel { font-size: 8px; letter-spacing: 2px; color: #f7931a; }
+.risknote { font-size: 10px; color: #8a90a6; line-height: 1.5; margin-top: 8px; }
 .entrybox { margin: 14px 0 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(247,147,26,0.3); background: rgba(247,147,26,0.06); }
 .entryrow { display: flex; justify-content: space-between; align-items: center; }
 .entrylabel { font-size: 10px; letter-spacing: 2px; color: #8a90a6; }

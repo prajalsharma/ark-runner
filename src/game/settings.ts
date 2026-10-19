@@ -8,7 +8,7 @@ export type Quality = "low" | "high";
 const SOUND_KEY = "archrunner.muted.v1"; // shared with AudioManager ("1" = muted)
 const MOTION_KEY = "archrunner.reducedmotion.v1";
 const QUALITY_KEY = "archrunner.quality.v1";
-const HERO_KEY = "archrunner.hero.v1";
+const HERO_KEY = "archrunner.hero.v2"; // v2: retire any stale "procedural" override so everyone gets the animated Pepe GLB
 
 function read(key: string): string | null { try { return localStorage.getItem(key); } catch { return null; } }
 function write(key: string, v: string): void { try { localStorage.setItem(key, v); } catch { /* ephemeral */ } }

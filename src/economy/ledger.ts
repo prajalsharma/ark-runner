@@ -21,6 +21,7 @@ export class RunnerLedger {
   private principal = new Map<string, Sats>();        // user vaults (withdrawable)
   private prize = new Map<string, Sats>();            // competitionId -> allocated prize pool
   private entered = new Map<string, Set<string>>();   // competitionId -> users (duplicate-entry guard)
+  private stakes = new Map<string, Map<string, Sats>>(); // competitionId -> (user -> stake) for weighted payouts
   private settled = new Set<string>();                // competitionId -> settled (idempotency)
   private reserve: Sats = 0n;
   private protocolRevenue: Sats = 0n;
@@ -64,7 +65,14 @@ export class RunnerLedger {
     this.protocolRevenue += protocolCut;
     users.add(user);
     this.entered.set(competitionId, users);
+    // Record the committed stake (the full fee = the user's risk) for stake-weighted payouts.
+    const st = this.stakes.get(competitionId) ?? new Map<string, Sats>();
+    st.set(user, fee);
+    this.stakes.set(competitionId, st);
   }
+
+  /** A user's committed stake for a competition (0 if they never entered). */
+  stakeOf(competitionId: string, user: string): Sats { return this.stakes.get(competitionId)?.get(user) ?? 0n; }
 
   /** Pay winners from the competition's prize pool back into their vaults. Idempotent + solvent. */
   settle(competitionId: string, payouts: Payout[]): void {

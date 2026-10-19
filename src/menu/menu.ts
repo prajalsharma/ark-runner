@@ -23,6 +23,7 @@ import { getNetwork, setNetwork, type NetworkMode } from "../chain/network.ts";
 import { fetchTestnetStatus } from "../chain/rpc.ts";
 import { ARCH_DEPLOYMENT, shortId } from "../chain/deployed.ts";
 import { RunnerLedger } from "../economy/ledger.ts";
+import { RISK_TIERS, DEFAULT_TIER, stakeForTier, type RiskTierId } from "../economy/distribution.ts";
 import type { WalletProvider, WalletSession } from "../wallet/provider.ts";
 import type { Mode } from "../game/daily.ts";
 
@@ -38,6 +39,7 @@ export class Menu {
   private ledger = new RunnerLedger(); // DEMO vault accounting (in-memory, no real funds)
   private vaultComp = 0;
   private vaultEntered = false;
+  private riskTier: RiskTierId = DEFAULT_TIER; // the player's chosen daily stake (dynamic risk)
 
   constructor(private canvas: HTMLCanvasElement, private hud: HTMLElement, private overlay: HTMLElement) {}
 
@@ -146,12 +148,34 @@ export class Menu {
           <div><span class="pv">${today ? today.toLocaleString() : "—"}</span><span class="pl">TODAY'S BEST</span></div>
           <div><span class="pv">#${seedHex}</span><span class="pl">SEED · ${DAILY_RULES.physicsVersion.replace("ARCHRUN_", "")}</span></div>
         </div>
+        ${this.riskPickerHtml()}
         ${this.entryBoxHtml()}
-        <button id="enter" class="btn">${this.liveEntryAvailable() ? "ENTER · PAY ENTRY ON-CHAIN" : "ENTER THE DAILY BLOCK"}</button>
+        <button id="enter" class="btn">${this.liveEntryAvailable() ? "ENTER · STAKE ON-CHAIN" : "ENTER THE DAILY BLOCK"}</button>
         <button id="back" class="btn ghost">BACK</button>
       </div>`;
+    this.overlay.querySelectorAll<HTMLButtonElement>(".riskpick").forEach((b) => {
+      b.onclick = () => { this.riskTier = b.dataset.tier as RiskTierId; this.showDailyBrief(); };
+    });
     this.bind("#enter", () => (this.liveEntryAvailable() ? this.enterDailyOnChain() : this.start("daily")));
     this.bind("#back", () => this.open());
+  }
+
+  /** Dynamic-risk stake picker: choose how much to commit for the day. A bigger stake buys a
+   *  bigger slice of ONE shared pool IF you place — and is forfeited to the pool if you don't. */
+  private riskPickerHtml(): string {
+    const cards = RISK_TIERS.map((t) => {
+      const on = this.riskTier === t.id;
+      return `<button class="riskpick${on ? " active" : ""}" data-tier="${t.id}">
+        <span class="rtname">${t.name}</span>
+        <span class="rtstake">${t.stake.toLocaleString()} sats</span>
+        ${on ? `<span class="rtsel">SELECTED</span>` : ""}
+      </button>`;
+    }).join("");
+    const note = RISK_TIERS.find((t) => t.id === this.riskTier)?.note ?? "";
+    return `
+      <div class="risklabel">CHOOSE YOUR RISK · today's stake</div>
+      <div class="riskrow">${cards}</div>
+      <div class="risknote">${note} <b>One shared pool.</b> Place in the top ranks and your slice scales with both your rank <b>and</b> your stake; miss the cut and your stake goes to the pool. Pure skill decides who places.</div>`;
   }
 
   /** Live on-chain entry is offered ONLY when a settlement service is configured AND the player
@@ -164,8 +188,8 @@ export class Menu {
     if (this.liveEntryAvailable()) {
       return `
         <div class="entrybox">
-          <div class="entryrow"><span class="entrylabel">ENTRY</span><span class="entryval">ON-CHAIN · <b>Arch testnet</b></span></div>
-          <div class="entrynote">You pay the entry with <b>your own wallet</b> — you sign a <code>JoinMatch</code> transaction that escrows the entry token into today's match vault. The settlement authority key never touches your browser. Prizes pay out 70/20/10 after the window. Testnet only — no real-money value.</div>
+          <div class="entryrow"><span class="entrylabel">STAKE</span><span class="entryval"><b>${stakeForTier(this.riskTier).toLocaleString()} sats</b> · ${this.riskTier.toUpperCase()} · Arch testnet</span></div>
+          <div class="entrynote">You stake with <b>your own wallet</b> — you sign a <code>JoinMatch</code> transaction escrowing your chosen stake into today's shared vault. The settlement authority key never touches your browser. After the window the pool pays the top ranks, each slice weighted by <b>rank × stake</b>; miss the cut and your stake stays in the pool. Testnet only — no real-money value.</div>
         </div>`;
     }
     return `
@@ -198,9 +222,13 @@ export class Menu {
       if (pool.settled) { info("ALREADY SETTLED", "Today's match is already settled — come back for the next Daily Block.", `<button id="back" class="btn">BACK</button>`); this.bind("#back", () => this.showDailyBrief()); return; }
       const bal = await provider.balanceOf(playerX).catch(() => 0n);
       if (bal <= 0n) { info("NO ENTRY TOKEN", "You don't hold the Daily Block entry token in this wallet yet. Get the entry token, then enter.", `<button id="back" class="btn">BACK</button>`); this.bind("#back", () => this.showDailyBrief()); return; }
+      // Dynamic risk: escrow the chosen stake, capped at what the wallet actually holds.
+      const stake = stakeForTier(this.riskTier);
+      const commit = stake <= bal ? stake : bal;
+      if (commit < stake) { info("STAKE TOO HIGH", `Your ${this.riskTier.toUpperCase()} stake is ${stake.toLocaleString()} sats but this wallet holds ${bal.toLocaleString()}. Pick a lower risk tier, or top up the entry token.`, `<button id="back" class="btn">BACK</button>`); this.bind("#back", () => this.showDailyBrief()); return; }
 
-      info("CONFIRM IN WALLET…", "Approve the <b>JoinMatch</b> signature in your wallet. This escrows your entry token into today's match vault.");
-      await provider.collectEntry(matchId, playerX, bal); // throws unless the tx confirms (Processed)
+      info("CONFIRM IN WALLET…", `Approve the <b>JoinMatch</b> signature in your wallet. This escrows your <b>${commit.toLocaleString()} sat</b> stake into today's match vault.`);
+      await provider.collectEntry(matchId, playerX, commit); // throws unless the tx confirms (Processed)
       info("ENTRY CONFIRMED ✓", "Your entry is escrowed on-chain. Good luck — run the block!", `<button id="go" class="btn">RUN</button>`);
       this.bind("#go", () => this.start("daily"));
     } catch (e) {
