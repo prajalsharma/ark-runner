@@ -47,7 +47,10 @@ function spring(val: number, vel: number, target: number, stiffness: number, dam
 
 // Hip/knee pivot planes (character space), measured once from the baked bbox and compiled into
 // the leg-bend shader as constants. Null until the model is baked.
-type LegParams = { hipY: number; hipBand: number; kneeY: number; kneeBand: number; cx: number; cz: number };
+type LegParams = {
+  hipY: number; hipBand: number; kneeY: number; kneeBand: number; cx: number; cz: number;
+  shoulderY: number; waistY: number; armInner: number; armOuter: number; // arm-swing pivot + lateral mask
+};
 let LEG: LegParams | null = null;
 
 // ---- Shared parse cache: load + normalise + bake ONCE, clone per renderer. ----
@@ -123,13 +126,19 @@ async function loadRoot(): Promise<THREE.Group> {
   // Measure the hip/knee pivot planes from the baked bounds (same for every clone → shared).
   const bb = new THREE.Box3().setFromObject(baked);
   const h = Math.max(1e-3, bb.max.y - bb.min.y);
+  const w = Math.max(1e-3, bb.max.x - bb.min.x);
+  const cx = (bb.min.x + bb.max.x) / 2;
   LEG = {
     hipY: bb.min.y + h * 0.50,   // swing the legs from just below mid-body
     hipBand: h * 0.16,           // smooth ramp so the torso stays rigid and the leg curves in
     kneeY: bb.min.y + h * 0.27,  // knee flex pivot
     kneeBand: h * 0.14,
-    cx: (bb.min.x + bb.max.x) / 2,
+    cx,
     cz: (bb.min.z + bb.max.z) / 2,
+    shoulderY: bb.min.y + h * 0.82, // arms pivot from the shoulders
+    waistY: bb.min.y + h * 0.46,    // arm influence fades out below the waist (so it never fights the legs)
+    armInner: w * 0.15,             // |x-cx| inside this = torso (rigid); outside = arm (swings)
+    armOuter: w * 0.30,
   };
   return baked;
 }
@@ -140,20 +149,22 @@ export function preloadPepe(): Promise<unknown> {
   return cachePromise;
 }
 
-/** Build the vertex-shader leg-bend injection (constants baked in from LEG). */
+/** Build the vertex-shader run-cycle injection (constants baked in from LEG). Rotates the lower
+ *  body about the hip + knee (legs) and the outer upper body about the shoulders (arms), all about
+ *  the X axis so limbs swing in the travel plane; left/right opposed, arms counter-phase to legs. */
 function bendChunk(p: LegParams): string {
   const f = (n: number): string => n.toFixed(5);
-  // Rotations about the X axis (legs swing in the travel plane). Weighted by height so the bend
-  // blends in from the hip down; the rear leg flexes its knee.
   const legSep = (p.hipBand); // lateral half-gap: keep the inseam/crotch rigid, swing the outer leg mass
   return `#include <begin_vertex>
   {
+    float side = step(${f(p.cx)}, transformed.x) * 2.0 - 1.0;   // -1 = left, +1 = right
+
+    // ---- LEGS: hip swing + knee flex (lower body) ----
     float heightW = 1.0 - smoothstep(${f(p.hipY - p.hipBand)}, ${f(p.hipY)}, transformed.y);
     // Lateral mask: vertices near the midline (the shared crotch) barely move, so opposite-swinging
     // legs don't tear the mesh between them; the outer leg mass takes the full swing.
     float lateral = smoothstep(0.0, ${f(legSep)}, abs(transformed.x - ${f(p.cx)}));
     float legW = heightW * lateral;
-    float side = step(${f(p.cx)}, transformed.x) * 2.0 - 1.0;   // -1 = left leg, +1 = right leg
     float hipAng = uSwing * side * legW;
     float yy = transformed.y - ${f(p.hipY)};
     float zz = transformed.z - ${f(p.cz)};
@@ -168,6 +179,19 @@ function bendChunk(p: LegParams): string {
     float ck = cos(kneeAng), sk = sin(kneeAng);
     transformed.y = ${f(p.kneeY)} + yk * ck - zk * sk;
     transformed.z = ${f(p.cz)} + yk * sk + zk * ck;
+
+    // ---- ARMS: shoulder swing (outer upper body only) ----
+    // Mask: outer-lateral (arms, not torso) AND above the waist (so it never grabs the legs).
+    float armLat = smoothstep(${f(p.armInner)}, ${f(p.armOuter)}, abs(transformed.x - ${f(p.cx)}));
+    float armUp = smoothstep(${f(p.waistY)}, ${f(p.shoulderY)}, transformed.y);
+    float armW = armLat * armUp;
+    // uArm is counter-phase to uSwing, so each arm opposes the same-side leg (natural run).
+    float armAng = uArm * side * armW;
+    float ya = transformed.y - ${f(p.shoulderY)};
+    float za = transformed.z - ${f(p.cz)};
+    float cA = cos(armAng), sA = sin(armAng);
+    transformed.y = ${f(p.shoulderY)} + ya * cA - za * sA;
+    transformed.z = ${f(p.cz)} + ya * sA + za * cA;
   }`;
 }
 
@@ -181,9 +205,10 @@ export class HeroPepeGLB {
   private color = new THREE.Color(0xe8701c);
   private readonly cTmp = new THREE.Color();
 
-  // Per-instance leg-animation uniforms (shared into every cloned material's shader).
-  private readonly uSwing = { value: 0 };
-  private readonly uKnee = { value: 0 };
+  // Per-instance run-cycle uniforms (shared into every cloned material's shader).
+  private readonly uSwing = { value: 0 }; // hip swing
+  private readonly uKnee = { value: 0 };  // knee flex
+  private readonly uArm = { value: 0 };   // shoulder swing (counter-phase to the legs)
 
   // Secondary-motion state (render-only).
   private airF = 0; private slideF = 0;
@@ -226,7 +251,8 @@ export class HeroPepeGLB {
           c.onBeforeCompile = (shader) => {
             shader.uniforms.uSwing = this.uSwing;
             shader.uniforms.uKnee = this.uKnee;
-            shader.vertexShader = "uniform float uSwing;\nuniform float uKnee;\n" + shader.vertexShader
+            shader.uniforms.uArm = this.uArm;
+            shader.vertexShader = "uniform float uSwing;\nuniform float uKnee;\nuniform float uArm;\n" + shader.vertexShader
               .replace("#include <begin_vertex>", bend);
           };
         }
@@ -273,8 +299,9 @@ export class HeroPepeGLB {
     // ---- LEG CYCLE (GPU vertex bend) ----
     // Legs swing from the hip in opposition (side flips the sign in the shader); the trailing
     // leg flexes its knee. Amplitude falls to ~0 when airborne/sliding so the legs don't flail.
-    this.uSwing.value = Math.sin(t) * 0.36 * run;  // the baked pose is already mid-stride, so swing moderately around it
-    this.uKnee.value = 0.45 * run;
+    this.uSwing.value = Math.sin(t) * 0.5 * run;   // hip drive (lateral mask lets us push harder without tearing)
+    this.uKnee.value = 0.6 * run;                  // knee flex on the trailing leg
+    this.uArm.value = -Math.sin(t) * 0.6 * run;    // arms pump counter-phase to the legs
 
     // ---- RUN RHYTHM (whole-body; sells weight on top of the leg cycle) ----
     // Footfall bob: the body rises twice per stride (one bounce per foot plant).
@@ -309,7 +336,7 @@ export class HeroPepeGLB {
    *  the legs at rest. armUp/chew/grip/flinch are no-ops for the GLB hero (no posable arms). */
   cutscenePose(_armUp: number, _chew = 0, _grip = 0, _flinch = 0): void {
     if (!this.isGLB) { this.fallback?.cutscenePose(_armUp, _chew, _grip, _flinch); return; }
-    this.uSwing.value = 0; this.uKnee.value = 0;
+    this.uSwing.value = 0; this.uKnee.value = 0; this.uArm.value = 0;
     this.inner.rotation.set(0, Math.PI, 0);
     this.inner.scale.set(1, 1, 1);
     this.group.position.y = 0;
